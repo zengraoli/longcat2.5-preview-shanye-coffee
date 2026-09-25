@@ -4,6 +4,7 @@ import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ProductsPage } from '@/pages/ProductsPage'
+import { OrdersPage } from '@/pages/OrdersPage'
 
 interface AuthUser {
   id: number
@@ -81,7 +82,7 @@ const router = createBrowserRouter([
       { path: '/', element: <Navigate to="/dashboard" replace /> },
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/products', element: <ProductsPage /> },
-      { path: '/orders', element: <div>订单管理</div> },
+      { path: '/orders', element: <OrdersPage /> },
       {
         element: <AdminRoute><Outlet /></AdminRoute>,
         children: [

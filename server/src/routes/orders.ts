@@ -244,6 +244,26 @@ export default async function orderRoutes(app: FastifyInstance): Promise<void> {
       ok(reply, rows);
     });
 
+    instance.get('/api/admin/orders/:id', async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const user = request.currentUser!;
+      const db = getDb();
+      const order = db.prepare(
+        `SELECT o.id, o.order_no, o.pickup_code, o.type, o.status, o.original_amount, o.discount_amount, o.paid_amount,
+                o.points_earned, o.created_at, o.paid_at, o.cancelled_at,
+                s.id AS store_id, s.name AS store_name
+         FROM orders o JOIN stores s ON o.store_id = s.id WHERE o.id = ?`,
+      ).get(Number(id)) as any;
+      if (!order) throw new AppError(ErrorCode.NOT_FOUND, '订单不存在', 404);
+      if (user.role === 'staff' && order.store_id !== user.storeId) {
+        throw new AppError(ErrorCode.FORBIDDEN, '没有权限执行此操作', 403);
+      }
+      const items = db.prepare(
+        'SELECT id, product_name, cup_size, temperature, sugar, quantity, unit_price FROM order_items WHERE order_id = ?',
+      ).all(order.id);
+      ok(reply, { ...order, items });
+    });
+
     instance.post('/api/admin/orders/:id/status', async (request, reply) => {
       const { id } = request.params as { id: string };
       const body = request.body as { status?: string };
