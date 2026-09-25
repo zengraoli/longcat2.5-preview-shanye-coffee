@@ -8,6 +8,7 @@ import memberRoutes from './routes/member.js';
 import storeRoutes from './routes/stores.js';
 import productRoutes from './routes/products.js';
 import couponRoutes from './routes/coupons.js';
+import orderRoutes from './routes/orders.js';
 
 export async function buildApp(app: FastifyInstance): Promise<FastifyInstance> {
   seedIfEmpty();
@@ -36,6 +37,7 @@ export async function buildApp(app: FastifyInstance): Promise<FastifyInstance> {
   await app.register(storeRoutes);
   await app.register(productRoutes);
   await app.register(couponRoutes);
+  await app.register(orderRoutes);
 
   return app;
 }
