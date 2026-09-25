@@ -30,6 +30,7 @@ const navItems: NavItem[] = [
   { to: '/members', label: '会员管理', icon: <Users size={18} />, adminOnly: true },
   { to: '/coupons', label: '优惠券', icon: <Ticket size={18} />, adminOnly: true },
   { to: '/accounts', label: '账号管理', icon: <UserCog size={18} />, adminOnly: true },
+  { to: '/promotions', label: '活动管理', icon: <Ticket size={18} />, adminOnly: true },
 ]
 
 export function Layout() {

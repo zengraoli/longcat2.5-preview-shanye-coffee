@@ -9,6 +9,7 @@ import { StoresPage } from '@/pages/StoresPage'
 import { MembersPage } from '@/pages/MembersPage'
 import { CouponsPage } from '@/pages/CouponsPage'
 import { AccountsPage } from '@/pages/AccountsPage'
+import { PromotionsPage } from '@/pages/PromotionsPage'
 
 interface AuthUser {
   id: number
@@ -94,6 +95,7 @@ const router = createBrowserRouter([
           { path: '/members', element: <MembersPage /> },
           { path: '/coupons', element: <CouponsPage /> },
           { path: '/accounts', element: <AccountsPage /> },
+          { path: '/promotions', element: <PromotionsPage /> },
         ],
       },
     ],

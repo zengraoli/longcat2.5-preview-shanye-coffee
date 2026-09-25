@@ -89,7 +89,42 @@ export default async function orderRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      let discountAmount = 0;
+      const now = new Date().toISOString();
+
+      let promoDiscount = 0;
+      const activePromo = db.prepare(
+        'SELECT id FROM promotions WHERE status = ? AND start_time <= ? AND end_time >= ? LIMIT 1',
+      ).get('active', now, now) as { id: number } | undefined;
+      if (activePromo) {
+        const promoProductIds = (db.prepare(
+          'SELECT product_id FROM promotion_products WHERE promotion_id = ?',
+        ).all(activePromo.id) as Array<{ product_id: number }>).map((r) => r.product_id);
+        const promoItems = orderItems.filter((i) => promoProductIds.includes(i.product_id));
+        const productGroups = new Map<number, typeof promoItems>();
+        for (const item of promoItems) {
+          const existing = productGroups.get(item.product_id) || [];
+          existing.push(item);
+          productGroups.set(item.product_id, existing);
+        }
+        for (const [, items] of productGroups) {
+          const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
+          const halfQty = Math.floor(totalQty / 2);
+          if (halfQty > 0) {
+            let remaining = halfQty;
+            const sorted = [...items].sort((a, b) => b.unit_price - a.unit_price);
+            for (const item of sorted) {
+              if (remaining <= 0) break;
+              const deduct = Math.min(item.quantity, remaining);
+              promoDiscount += Math.floor((item.unit_price * deduct) / 2);
+              remaining -= deduct;
+            }
+          }
+        }
+      }
+
+      const amountAfterPromo = originalAmount - promoDiscount;
+
+      let discountAmount = promoDiscount;
       let couponId: number | null = null;
       if (body.userCouponId) {
         const uc = db.prepare(
@@ -99,19 +134,19 @@ export default async function orderRoutes(app: FastifyInstance): Promise<void> {
         if (uc.status !== 'unused') throw new AppError(ErrorCode.COUPON_NOT_USABLE, '优惠券已被使用');
         if (!isCouponValid(uc)) throw new AppError(ErrorCode.COUPON_EXPIRED, '优惠券已过期');
         const coupon = { id: uc.coupon_id, name: uc.name ?? '', type: uc.type, threshold: uc.threshold, discount: uc.discount, valid_from: uc.valid_from, valid_to: uc.valid_to };
-        discountAmount = calculateDiscount(coupon, originalAmount);
-        if (discountAmount <= 0) throw new AppError(ErrorCode.COUPON_NOT_USABLE, '优惠券不满足使用条件');
+        const couponDiscount = calculateDiscount(coupon, amountAfterPromo);
+        if (couponDiscount <= 0) throw new AppError(ErrorCode.COUPON_NOT_USABLE, '优惠券不满足使用条件');
+        discountAmount += couponDiscount;
         couponId = uc.coupon_id;
       }
 
       const paidAmount = originalAmount - discountAmount;
       const pickupCode = generatePickupCode();
       const orderNo = generateOrderNo();
-      const now = new Date().toISOString();
 
       const result = db.prepare(
-        'INSERT INTO orders (order_no, pickup_code, user_id, store_id, type, status, original_amount, discount_amount, paid_amount, coupon_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(orderNo, pickupCode, request.currentUser!.userId, body.storeId, body.type, 'pending', originalAmount, discountAmount, paidAmount, couponId, now);
+        'INSERT INTO orders (order_no, pickup_code, user_id, store_id, type, status, original_amount, discount_amount, paid_amount, coupon_id, points_earned, promo_discount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ).run(orderNo, pickupCode, request.currentUser!.userId, body.storeId, body.type, 'pending', originalAmount, discountAmount, paidAmount, couponId, 0, promoDiscount, now);
       const orderId = Number(result.lastInsertRowid);
 
       const insertItem = db.prepare(
@@ -160,7 +195,7 @@ export default async function orderRoutes(app: FastifyInstance): Promise<void> {
       const db = getDb();
       const order = db.prepare(
         `SELECT o.id, o.order_no, o.pickup_code, o.type, o.status, o.original_amount, o.discount_amount, o.paid_amount,
-                o.points_earned, o.created_at, o.paid_at, o.cancelled_at,
+                o.points_earned, o.promo_discount, o.created_at, o.paid_at, o.cancelled_at,
                 s.id AS store_id, s.name AS store_name
          FROM orders o JOIN stores s ON o.store_id = s.id WHERE o.id = ? AND o.user_id = ?`,
       ).get(Number(id), request.currentUser!.userId) as any;
@@ -224,7 +259,7 @@ export default async function orderRoutes(app: FastifyInstance): Promise<void> {
       const db = getDb();
       let sql = `
         SELECT o.id, o.order_no, o.pickup_code, o.type, o.status, o.original_amount, o.discount_amount, o.paid_amount,
-               o.points_earned, o.created_at, o.paid_at, o.cancelled_at,
+               o.points_earned, o.promo_discount, o.created_at, o.paid_at, o.cancelled_at,
                s.id AS store_id, s.name AS store_name
         FROM orders o JOIN stores s ON o.store_id = s.id WHERE 1=1`;
       const params: any[] = [];
@@ -250,7 +285,7 @@ export default async function orderRoutes(app: FastifyInstance): Promise<void> {
       const db = getDb();
       const order = db.prepare(
         `SELECT o.id, o.order_no, o.pickup_code, o.type, o.status, o.original_amount, o.discount_amount, o.paid_amount,
-                o.points_earned, o.created_at, o.paid_at, o.cancelled_at,
+                o.points_earned, o.promo_discount, o.created_at, o.paid_at, o.cancelled_at,
                 s.id AS store_id, s.name AS store_name
          FROM orders o JOIN stores s ON o.store_id = s.id WHERE o.id = ?`,
       ).get(Number(id)) as any;

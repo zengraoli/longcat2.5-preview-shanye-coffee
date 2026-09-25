@@ -52,6 +52,20 @@ CREATE TABLE IF NOT EXISTS admin_users (
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled'))
 );
 
+CREATE TABLE IF NOT EXISTS promotions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','inactive'))
+);
+
+CREATE TABLE IF NOT EXISTS promotion_products (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  promotion_id INTEGER NOT NULL REFERENCES promotions(id),
+  product_id INTEGER NOT NULL REFERENCES products(id)
+);
+
 CREATE TABLE IF NOT EXISTS members (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   phone TEXT NOT NULL UNIQUE,
@@ -93,6 +107,7 @@ CREATE TABLE IF NOT EXISTS orders (
   paid_amount INTEGER NOT NULL,
   coupon_id INTEGER,
   points_earned INTEGER NOT NULL DEFAULT 0,
+  promo_discount INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   paid_at TEXT,
   cancelled_at TEXT
@@ -138,6 +153,10 @@ export function getDb(): DatabaseSync {
   const columns = (db.prepare('PRAGMA table_info(admin_users)').all() as Array<{ name: string }>).map((c) => c.name);
   if (!columns.includes('status')) {
     db.exec("ALTER TABLE admin_users ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled'))");
+  }
+  const orderColumns = (db.prepare('PRAGMA table_info(orders)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!orderColumns.includes('promo_discount')) {
+    db.exec("ALTER TABLE orders ADD COLUMN promo_discount INTEGER NOT NULL DEFAULT 0");
   }
   return db;
 }

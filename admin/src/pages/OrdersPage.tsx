@@ -13,6 +13,7 @@ interface Order {
   discount_amount: number
   paid_amount: number
   points_earned: number
+  promo_discount: number
   created_at: string
   paid_at: string | null
   cancelled_at: string | null
@@ -290,10 +291,18 @@ export function OrdersPage() {
                   <span className="text-muted-foreground">原价</span>
                   <span className="font-mono">{formatYuan(detail.original_amount)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">优惠</span>
-                  <span className="font-mono text-destructive">-{formatYuan(detail.discount_amount)}</span>
-                </div>
+                {detail.promo_discount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">活动优惠</span>
+                    <span className="font-mono text-destructive">-{formatYuan(detail.promo_discount)}</span>
+                  </div>
+                )}
+                {detail.discount_amount - detail.promo_discount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">优惠券</span>
+                    <span className="font-mono text-destructive">-{formatYuan(detail.discount_amount - detail.promo_discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-semibold">
                   <span>实付</span>
                   <span className="font-mono">{formatYuan(detail.paid_amount)}</span>

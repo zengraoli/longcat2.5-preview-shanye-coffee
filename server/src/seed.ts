@@ -124,4 +124,18 @@ export function seedIfEmpty(): void {
   for (const c of coupons) {
     insertCoupon.run(c.name, c.type, c.threshold, c.discount, c.valid_from, c.valid_to, c.total_count);
   }
+
+  const now = Date.now();
+  const weekLater = now + 7 * 24 * 60 * 60 * 1000;
+  const promoResult = db.prepare('INSERT INTO promotions (name, start_time, end_time, status) VALUES (?, ?, ?, ?)').run(
+    '第二杯半价',
+    new Date(now).toISOString(),
+    new Date(weekLater).toISOString(),
+    'active',
+  );
+  const promoId = Number(promoResult.lastInsertRowid);
+  const insertPromoProduct = db.prepare('INSERT INTO promotion_products (promotion_id, product_id) VALUES (?, ?)');
+  insertPromoProduct.run(promoId, 1);
+  insertPromoProduct.run(promoId, 2);
+  insertPromoProduct.run(promoId, 3);
 }

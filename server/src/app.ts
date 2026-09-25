@@ -13,6 +13,7 @@ import docsRoutes from './routes/docs.js';
 import dashboardRoutes from './routes/dashboard.js';
 import adminManageRoutes from './routes/admin-manage.js';
 import accountRoutes from './routes/accounts.js';
+import promotionRoutes from './routes/promotions.js';
 
 export async function buildApp(app: FastifyInstance): Promise<FastifyInstance> {
   seedIfEmpty();
@@ -46,6 +47,7 @@ export async function buildApp(app: FastifyInstance): Promise<FastifyInstance> {
   await app.register(dashboardRoutes);
   await app.register(adminManageRoutes);
   await app.register(accountRoutes);
+  await app.register(promotionRoutes);
 
   return app;
 }
