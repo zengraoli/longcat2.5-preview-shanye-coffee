@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { getDb } from '../db.js';
 import { AppError, ErrorCode } from '../errors.js';
 import { ok } from '../reply.js';
+import { authRequired, adminRequired } from '../plugins/auth.js';
 
 export default async function productRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/categories', async (_request, reply) => {
@@ -59,27 +60,32 @@ export default async function productRoutes(app: FastifyInstance): Promise<void>
     });
   });
 
-  app.patch('/api/admin/products/:id/status', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const body = request.body as { status?: string };
-    if (!body.status || !['on', 'off'].includes(body.status)) {
-      throw new AppError(ErrorCode.VALIDATION_FAILED, 'status 必须为 on 或 off');
-    }
-    const db = getDb();
-    const result = db.prepare('UPDATE products SET status = ? WHERE id = ?').run(body.status, Number(id));
-    if (result.changes === 0) throw new AppError(ErrorCode.NOT_FOUND, '商品不存在', 404);
-    ok(reply, null);
-  });
+  await app.register(async (instance) => {
+    authRequired(instance);
+    adminRequired(instance);
 
-  app.patch('/api/admin/products/:id/sold-out', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const body = request.body as { soldOut?: boolean };
-    if (typeof body.soldOut !== 'boolean') {
-      throw new AppError(ErrorCode.VALIDATION_FAILED, 'soldOut 必须为布尔值');
-    }
-    const db = getDb();
-    const result = db.prepare('UPDATE products SET sold_out = ? WHERE id = ?').run(body.soldOut ? 1 : 0, Number(id));
-    if (result.changes === 0) throw new AppError(ErrorCode.NOT_FOUND, '商品不存在', 404);
-    ok(reply, null);
+    instance.patch('/api/admin/products/:id/status', async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { status?: string };
+      if (!body.status || !['on', 'off'].includes(body.status)) {
+        throw new AppError(ErrorCode.VALIDATION_FAILED, 'status 必须为 on 或 off');
+      }
+      const db = getDb();
+      const result = db.prepare('UPDATE products SET status = ? WHERE id = ?').run(body.status, Number(id));
+      if (result.changes === 0) throw new AppError(ErrorCode.NOT_FOUND, '商品不存在', 404);
+      ok(reply, null);
+    });
+
+    instance.patch('/api/admin/products/:id/sold-out', async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { soldOut?: boolean };
+      if (typeof body.soldOut !== 'boolean') {
+        throw new AppError(ErrorCode.VALIDATION_FAILED, 'soldOut 必须为布尔值');
+      }
+      const db = getDb();
+      const result = db.prepare('UPDATE products SET sold_out = ? WHERE id = ?').run(body.soldOut ? 1 : 0, Number(id));
+      if (result.changes === 0) throw new AppError(ErrorCode.NOT_FOUND, '商品不存在', 404);
+      ok(reply, null);
+    });
   });
 }

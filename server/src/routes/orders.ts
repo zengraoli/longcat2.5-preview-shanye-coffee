@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { getDb } from '../db.js';
 import { AppError, ErrorCode } from '../errors.js';
 import { ok } from '../reply.js';
-import { authRequired } from '../plugins/auth.js';
+import { authRequired, adminRequired } from '../plugins/auth.js';
 import { calculateDiscount, isCouponValid } from '../utils/coupon.js';
 import { assertTransition } from '../utils/order.js';
 import { calcPointsFromAmount, getMemberLevel } from '../utils/points.js';
@@ -212,9 +212,14 @@ export default async function orderRoutes(app: FastifyInstance): Promise<void> {
       ok(reply, { id: order.id, status: 'cancelled' });
     });
 
+  });
+
+  await app.register(async (instance) => {
+    authRequired(instance);
+    adminRequired(instance);
+
     instance.get('/api/admin/orders', async (request, reply) => {
       const user = request.currentUser!;
-      if (user.userType !== 'admin') throw new AppError(ErrorCode.FORBIDDEN, '没有权限执行此操作', 403);
       const query = request.query as { storeId?: string; status?: string };
       const db = getDb();
       let sql = `
@@ -244,7 +249,6 @@ export default async function orderRoutes(app: FastifyInstance): Promise<void> {
       const body = request.body as { status?: string };
       if (!body.status) throw new AppError(ErrorCode.VALIDATION_FAILED, '目标状态不能为空');
       const user = request.currentUser!;
-      if (user.userType !== 'admin') throw new AppError(ErrorCode.FORBIDDEN, '没有权限执行此操作', 403);
 
       const db = getDb();
       const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(id)) as any;
