@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 import { createBrowserRouter, RouterProvider, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/LoginPage'
+import { DashboardPage } from '@/pages/DashboardPage'
 
 interface AuthUser {
   id: number
@@ -77,7 +78,7 @@ const router = createBrowserRouter([
     element: <ProtectedRoute><Layout /></ProtectedRoute>,
     children: [
       { path: '/', element: <Navigate to="/dashboard" replace /> },
-      { path: '/dashboard', element: <div>数据看板</div> },
+      { path: '/dashboard', element: <DashboardPage /> },
       { path: '/products', element: <div>商品管理</div> },
       { path: '/orders', element: <div>订单管理</div> },
       {
