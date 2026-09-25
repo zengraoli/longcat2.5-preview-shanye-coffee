@@ -5,6 +5,9 @@ import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ProductsPage } from '@/pages/ProductsPage'
 import { OrdersPage } from '@/pages/OrdersPage'
+import { StoresPage } from '@/pages/StoresPage'
+import { MembersPage } from '@/pages/MembersPage'
+import { CouponsPage } from '@/pages/CouponsPage'
 
 interface AuthUser {
   id: number
@@ -86,9 +89,9 @@ const router = createBrowserRouter([
       {
         element: <AdminRoute><Outlet /></AdminRoute>,
         children: [
-          { path: '/stores', element: <div>门店管理</div> },
-          { path: '/members', element: <div>会员管理</div> },
-          { path: '/coupons', element: <div>优惠券管理</div> },
+          { path: '/stores', element: <StoresPage /> },
+          { path: '/members', element: <MembersPage /> },
+          { path: '/coupons', element: <CouponsPage /> },
           { path: '/accounts', element: <div>账号管理</div> },
         ],
       },

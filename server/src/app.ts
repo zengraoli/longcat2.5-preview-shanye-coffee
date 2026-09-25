@@ -11,6 +11,7 @@ import couponRoutes from './routes/coupons.js';
 import orderRoutes from './routes/orders.js';
 import docsRoutes from './routes/docs.js';
 import dashboardRoutes from './routes/dashboard.js';
+import adminManageRoutes from './routes/admin-manage.js';
 
 export async function buildApp(app: FastifyInstance): Promise<FastifyInstance> {
   seedIfEmpty();
@@ -42,6 +43,7 @@ export async function buildApp(app: FastifyInstance): Promise<FastifyInstance> {
   await app.register(orderRoutes);
   await app.register(docsRoutes);
   await app.register(dashboardRoutes);
+  await app.register(adminManageRoutes);
 
   return app;
 }
