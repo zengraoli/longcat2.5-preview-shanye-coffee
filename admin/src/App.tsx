@@ -8,6 +8,7 @@ import { OrdersPage } from '@/pages/OrdersPage'
 import { StoresPage } from '@/pages/StoresPage'
 import { MembersPage } from '@/pages/MembersPage'
 import { CouponsPage } from '@/pages/CouponsPage'
+import { AccountsPage } from '@/pages/AccountsPage'
 
 interface AuthUser {
   id: number
@@ -92,7 +93,7 @@ const router = createBrowserRouter([
           { path: '/stores', element: <StoresPage /> },
           { path: '/members', element: <MembersPage /> },
           { path: '/coupons', element: <CouponsPage /> },
-          { path: '/accounts', element: <div>账号管理</div> },
+          { path: '/accounts', element: <AccountsPage /> },
         ],
       },
     ],

@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS admin_users (
   password TEXT NOT NULL,
   name TEXT NOT NULL,
   role TEXT NOT NULL CHECK(role IN ('admin','staff')),
-  store_id INTEGER REFERENCES stores(id)
+  store_id INTEGER REFERENCES stores(id),
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled'))
 );
 
 CREATE TABLE IF NOT EXISTS members (
@@ -134,5 +135,9 @@ export function getDb(): DatabaseSync {
   db = new DatabaseSync(dbPath);
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  const columns = (db.prepare('PRAGMA table_info(admin_users)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!columns.includes('status')) {
+    db.exec("ALTER TABLE admin_users ADD COLUMN status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled'))");
+  }
   return db;
 }

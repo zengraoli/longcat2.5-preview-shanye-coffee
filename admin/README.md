@@ -1,32 +1,41 @@
-# React + TypeScript + Vite
+# 山野咖啡后台管理系统
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite + TypeScript + Tailwind CSS v4 + shadcn/ui（Base UI 底层）+ Recharts
 
-Currently, two official plugins are available:
+## 启动
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev        # 开发模式，默认端口 5301
+npm run build      # 构建到 dist/
+npm run preview    # 预览构建产物
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+开发模式下需同时启动 server（端口 3300），Vite 已配置 `/api` 代理。
+
+## 默认账号
+
+| 角色 | 用户名 | 密码 |
+|---|---|---|
+| 管理员 | admin | admin123 |
+| 店员（望京SOHO店） | staff01 | staff123 |
+
+## 功能
+
+- 数据看板：今日营业额、订单量、客单价、新增会员、近 7 天趋势、热销 Top10、最新订单
+- 商品管理：列表筛选、新增/编辑（含规格加价）、上下架、售罄
+- 订单管理：按门店/状态筛选、详情查看、状态推进
+- 门店管理：门店信息与营业状态管理
+- 会员管理：会员列表（手机号脱敏）、详情（订单与优惠券）
+- 优惠券管理：创建、编辑、停用
+- 账号管理：新增、编辑、重置密码、停用/启用
+
+## 权限说明
+
+- 管理员：全部功能
+- 店员：数据看板、商品管理、订单管理（仅本门店）；无门店/会员/优惠券/账号管理入口
+
+## 已知问题
+
+- 不依赖外部图片或 CDN，商品图暂用文字展示
+- 构建产物较大（含 Recharts），可后续做代码分割优化
