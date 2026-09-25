@@ -1,9 +1,12 @@
 import type { FastifyError, FastifyInstance } from 'fastify';
 import { AppError, errorMessage } from './errors.js';
 import { fail } from './reply.js';
+import { seedIfEmpty } from './seed.js';
 import healthRoutes from './routes/health.js';
 
 export async function buildApp(app: FastifyInstance): Promise<FastifyInstance> {
+  seedIfEmpty();
+
   app.setErrorHandler((error: unknown, request, reply) => {
     if (error instanceof AppError) {
       fail(reply, error.statusCode, error.code, error.message);
