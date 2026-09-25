@@ -10,8 +10,23 @@ const router = createRouter({
     { path: '/menu', component: () => import('@/pages/MenuPage.vue') },
     { path: '/stores', component: () => import('@/pages/StoresPage.vue') },
     { path: '/story', component: () => import('@/pages/StoryPage.vue') },
-    { path: '/member', component: () => import('@/pages/MemberPage.vue') },
+    { path: '/login', component: () => import('@/pages/LoginPage.vue') },
+    {
+      path: '/member',
+      component: () => import('@/pages/MemberPage.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
+})
+
+router.beforeEach((to) => {
+  if (to.meta.requiresAuth) {
+    const token = localStorage.getItem('member_token')
+    if (!token) {
+      return { path: '/login' }
+    }
+  }
+  return true
 })
 
 const app = createApp(App)

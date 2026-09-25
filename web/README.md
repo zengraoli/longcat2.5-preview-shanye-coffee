@@ -1,5 +1,31 @@
-# Vue 3 + TypeScript + Vite
+# 山野咖啡官网 + 会员中心
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Vue 3 + Vite + TypeScript
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## 启动
+
+```bash
+npm install
+npm run dev        # 开发模式，默认端口 5302
+npm run build      # 构建到 dist/
+npm run preview    # 预览构建产物
+```
+
+开发模式下需同时启动 server（端口 3300），Vite 已配置 `/api` 代理。
+
+## 功能
+
+- 首页：品牌主视觉、当季推荐、门店入口、品牌理念
+- 菜单：按分类浏览商品，展示价格与售罄状态
+- 门店：门店列表、营业状态、导航链接
+- 品牌故事：品牌理念与坚持
+- 会员中心：手机号登录后查看订单、积分、等级、优惠券
+
+## 会员登录
+
+手机号 + 验证码登录，验证码固定为 `123456`（模拟）。
+
+## 已知问题
+
+- 不依赖外部图片或 CDN，商品图用 SVG 占位
+- 门店导航链接指向百度地图搜索
