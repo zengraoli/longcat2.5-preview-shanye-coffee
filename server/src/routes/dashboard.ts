@@ -3,10 +3,16 @@ import { getDb } from '../db.js';
 import { ok } from '../reply.js';
 import { authRequired, adminRequired } from '../plugins/auth.js';
 
-function getBeijingToday(): string {
+function getBeijingTodayRange(): { start: string; end: string } {
   const now = new Date();
   const bj = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-  return bj.toISOString().slice(0, 10);
+  const bjDate = bj.toISOString().slice(0, 10);
+  const utcStart = new Date(`${bjDate}T00:00:00Z`).getTime() - 8 * 60 * 60 * 1000;
+  const utcEnd = utcStart + 24 * 60 * 60 * 1000;
+  return {
+    start: new Date(utcStart).toISOString(),
+    end: new Date(utcEnd).toISOString(),
+  };
 }
 
 export default async function dashboardRoutes(app: FastifyInstance): Promise<void> {
@@ -16,7 +22,7 @@ export default async function dashboardRoutes(app: FastifyInstance): Promise<voi
 
     instance.get('/api/admin/dashboard', async (_request, reply) => {
       const db = getDb();
-      const today = getBeijingToday();
+      const { start, end } = getBeijingTodayRange();
 
       const todayStats = db.prepare(`
         SELECT
@@ -24,12 +30,12 @@ export default async function dashboardRoutes(app: FastifyInstance): Promise<voi
           COUNT(*) AS orderCount
         FROM orders
         WHERE status IN ('paid','making','ready','completed')
-          AND created_at >= ?
-      `).get(today) as { revenue: number; orderCount: number };
+          AND created_at >= ? AND created_at < ?
+      `).get(start, end) as { revenue: number; orderCount: number };
 
       const newMembers = db.prepare(`
-        SELECT COUNT(*) AS c FROM members WHERE created_at >= ?
-      `).get(today) as { c: number };
+        SELECT COUNT(*) AS c FROM members WHERE created_at >= ? AND created_at < ?
+      `).get(start, end) as { c: number };
 
       const trend = db.prepare(`
         SELECT substr(created_at, 1, 10) AS day,
@@ -40,7 +46,7 @@ export default async function dashboardRoutes(app: FastifyInstance): Promise<voi
           AND created_at >= date(?, '-6 days')
         GROUP BY substr(created_at, 1, 10)
         ORDER BY day
-      `).all(today) as Array<{ day: string; revenue: number; orderCount: number }>;
+      `).all(start) as Array<{ day: string; revenue: number; orderCount: number }>;
 
       const topProducts = db.prepare(`
         SELECT oi.product_name AS name, SUM(oi.quantity) AS totalQty, SUM(oi.unit_price * oi.quantity) AS totalRevenue
