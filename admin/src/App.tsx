@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider, Navigate, Outlet, useNavigate } fr
 import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { ProductsPage } from '@/pages/ProductsPage'
 
 interface AuthUser {
   id: number
@@ -79,7 +80,7 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <Navigate to="/dashboard" replace /> },
       { path: '/dashboard', element: <DashboardPage /> },
-      { path: '/products', element: <div>商品管理</div> },
+      { path: '/products', element: <ProductsPage /> },
       { path: '/orders', element: <div>订单管理</div> },
       {
         element: <AdminRoute><Outlet /></AdminRoute>,
