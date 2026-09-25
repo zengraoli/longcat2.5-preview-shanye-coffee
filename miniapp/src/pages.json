@@ -4,6 +4,8 @@
     { "path": "pages/order/index", "style": { "navigationBarTitleText": "点单" } },
     { "path": "pages/checkout/index", "style": { "navigationBarTitleText": "确认订单" } },
     { "path": "pages/order-detail/index", "style": { "navigationBarTitleText": "订单详情" } },
+    { "path": "pages/login/index", "style": { "navigationBarTitleText": "登录" } },
+    { "path": "pages/stores/index", "style": { "navigationBarTitleText": "门店" } },
     { "path": "pages/profile/index", "style": { "navigationBarTitleText": "我的" } }
   ],
   "globalStyle": {
