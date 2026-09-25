@@ -6,6 +6,7 @@ import { ok } from '../reply.js';
 import { authRequired } from '../plugins/auth.js';
 import { calculateDiscount, isCouponValid } from '../utils/coupon.js';
 import { assertTransition } from '../utils/order.js';
+import { calcPointsFromAmount, getMemberLevel } from '../utils/points.js';
 
 function generatePickupCode(): string {
   return randomBytes(2).toString('hex').toUpperCase().slice(0, 4);
@@ -181,7 +182,7 @@ export default async function orderRoutes(app: FastifyInstance): Promise<void> {
       const now = new Date().toISOString();
       db.prepare("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ?").run(now, order.id);
 
-      const pointsEarned = Math.floor(order.paid_amount / 100);
+      const pointsEarned = calcPointsFromAmount(order.paid_amount);
       if (pointsEarned > 0) {
         const member = db.prepare('SELECT points FROM members WHERE id = ?').get(order.user_id) as { points: number };
         const newPoints = member.points + pointsEarned;
@@ -192,7 +193,8 @@ export default async function orderRoutes(app: FastifyInstance): Promise<void> {
         db.prepare('UPDATE orders SET points_earned = ? WHERE id = ?').run(pointsEarned, order.id);
       }
 
-      ok(reply, { id: order.id, status: 'paid', paidAt: now });
+      const member = db.prepare('SELECT points FROM members WHERE id = ?').get(order.user_id) as { points: number };
+      ok(reply, { id: order.id, status: 'paid', paidAt: now, pointsEarned, level: getMemberLevel(member.points) });
     });
 
     instance.post('/api/orders/:id/cancel', async (request, reply) => {
