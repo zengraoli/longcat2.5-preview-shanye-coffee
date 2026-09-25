@@ -3,6 +3,8 @@ import { AppError, errorMessage } from './errors.js';
 import { fail } from './reply.js';
 import { seedIfEmpty } from './seed.js';
 import healthRoutes from './routes/health.js';
+import authRoutes from './routes/auth.js';
+import memberRoutes from './routes/member.js';
 
 export async function buildApp(app: FastifyInstance): Promise<FastifyInstance> {
   seedIfEmpty();
@@ -26,6 +28,8 @@ export async function buildApp(app: FastifyInstance): Promise<FastifyInstance> {
   });
 
   await app.register(healthRoutes);
+  await app.register(authRoutes);
+  await app.register(memberRoutes);
 
   return app;
 }
