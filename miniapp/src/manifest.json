@@ -1,0 +1,27 @@
+{
+  "name": "山野咖啡",
+  "appid": "",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "description": "山野咖啡点单小程序",
+  "transformPx": false,
+  "app-plus": {
+    "usingComponents": true
+  },
+  "quickapp": {},
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "minified": true
+    },
+    "usingComponents": true
+  },
+  "h5": {
+    "title": "山野咖啡",
+    "router": {
+      "mode": "hash"
+    }
+  }
+}
