@@ -77,9 +77,15 @@ fun CupArt(
     cupBg: Color = Color(0xFFF6E7C8),
     liquid: Color = Color(0xFFC08A4A),
 ) {
-    androidx.compose.foundation.Canvas(modifier = modifier) {
+    androidx.compose.foundation.Canvas(modifier = modifier.fillMaxSize()) {
         val w = this.size.width
         val h = this.size.height
+        // 背景
+        drawRoundRect(
+            color = cupBg,
+            size = androidx.compose.ui.geometry.Size(w, h),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.18f, w * 0.18f),
+        )
         // 杯身
         drawRoundRect(
             color = Color.White,
@@ -115,7 +121,6 @@ fun CupArt(
             strokeWidth = w * 0.025f,
         )
     }
-    Box(modifier = modifier.background(cupBg, RoundedCornerShape(Radii.thumb)))
 }
 
 object StateViews {

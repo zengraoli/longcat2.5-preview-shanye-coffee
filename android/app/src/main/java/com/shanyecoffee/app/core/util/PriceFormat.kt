@@ -6,8 +6,8 @@ import java.util.Locale
 object PriceFormat {
 
     fun fenToYuan(fen: Int): String {
-        val yuan = fen / 100
-        val remainder = (fen % 100).let { if (it < 0) -it else it }
-        return String.format(Locale.CHINA, "¥%d.%02d", yuan, remainder)
+        val sign = if (fen < 0) "-" else ""
+        val abs = if (fen < 0) -fen else fen
+        return String.format(Locale.CHINA, "%s¥%d.%02d", sign, abs / 100, abs % 100)
     }
 }

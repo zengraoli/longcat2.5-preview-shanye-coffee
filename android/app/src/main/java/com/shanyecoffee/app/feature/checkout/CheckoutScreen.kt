@@ -1,7 +1,6 @@
 package com.shanyecoffee.app.feature.checkout
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,12 +17,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -40,13 +39,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shanyecoffee.app.core.cart.CartManager
+import com.shanyecoffee.app.core.data.SessionManager
 import com.shanyecoffee.app.core.ui.components.CupArt
 import com.shanyecoffee.app.core.ui.components.ScreenTitleBar
 import com.shanyecoffee.app.core.ui.components.StateViews
 import com.shanyecoffee.app.core.ui.components.categoryCupColors
 import com.shanyecoffee.app.core.ui.theme.BrandGreen
 import com.shanyecoffee.app.core.ui.theme.Cream
-import com.shanyecoffee.app.core.ui.theme.PriceLarge
 import com.shanyecoffee.app.core.ui.theme.Radii
 import com.shanyecoffee.app.core.ui.theme.TagOrangeBg
 import com.shanyecoffee.app.core.ui.theme.Terracotta
@@ -70,21 +69,42 @@ fun CheckoutScreen(
     val cartLines by CartManager.lines.collectAsState()
     val orderType by CartManager.orderType.collectAsState()
 
+    CheckoutContent(
+        state = state,
+        cartLines = cartLines,
+        orderType = orderType,
+        onPay = { viewModel.submitOrder(onPaySuccess) },
+        onRetry = viewModel::load,
+        onNeedLogin = onNeedLogin,
+    )
+}
+
+/** 确认订单页内容（纯渲染，演示数据可直接传入用于截图测试） */
+@Composable
+fun CheckoutContent(
+    state: CheckoutUiState,
+    cartLines: List<CartManager.Line>,
+    orderType: String,
+    onPay: () -> Unit,
+    onRetry: () -> Unit = {},
+    onNeedLogin: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     // 未登录时跳转登录页，登录成功后回到本页（popBackStack）
     LaunchedEffect(Unit) {
-        if (!com.shanyecoffee.app.core.data.SessionManager.isLoggedIn) {
+        if (!SessionManager.isLoggedIn) {
             onNeedLogin()
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Cream)) {
+    Box(modifier = modifier.fillMaxSize().background(Cream)) {
         Column(modifier = Modifier.fillMaxSize()) {
             ScreenTitleBar(title = "确认订单")
 
             if (state.loading) {
                 StateViews.LoadingView()
             } else if (state.error != null && state.selectedStore == null) {
-                StateViews.ErrorView(message = state.error ?: "加载失败", onRetry = viewModel::load)
+                StateViews.ErrorView(message = state.error ?: "加载失败", onRetry = onRetry)
             } else {
                 Column(
                     modifier = Modifier
@@ -311,7 +331,7 @@ fun CheckoutScreen(
                     }
                 }
                 Button(
-                    onClick = { viewModel.submitOrder(onPaySuccess) },
+                    onClick = onPay,
                     modifier = Modifier
                         .heightIn(min = 48.dp)
                         .testTag("btn_pay"),

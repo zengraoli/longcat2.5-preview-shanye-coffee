@@ -68,6 +68,25 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    HomeContent(
+        state = state,
+        onGoToOrder = onGoToOrder,
+        onStoreSelected = viewModel::selectStore,
+        onRetry = viewModel::load,
+        onQuickAdd = viewModel::quickAdd,
+    )
+}
+
+/** 首页内容（纯渲染，演示数据可直接传入用于截图测试） */
+@Composable
+fun HomeContent(
+    state: HomeUiState,
+    onGoToOrder: (orderType: String) -> Unit,
+    onStoreSelected: (Int) -> Unit = {},
+    onRetry: () -> Unit = {},
+    onQuickAdd: (ProductDto) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     var showStorePicker by remember { mutableStateOf(false) }
 
     Column(
@@ -130,7 +149,7 @@ fun HomeScreen(
                         )
                     },
                     onClick = {
-                        viewModel.selectStore(store.id)
+                        onStoreSelected(store.id)
                         showStorePicker = false
                     },
                 )
@@ -142,7 +161,7 @@ fun HomeScreen(
         } else if (state.error != null) {
             StateViews.ErrorView(
                 message = state.error ?: "加载失败",
-                onRetry = viewModel::load,
+                onRetry = onRetry,
             )
         } else {
             // 活动横幅（数据来自 server 进行中的活动）
@@ -238,7 +257,7 @@ fun HomeScreen(
                                 RecommendCard(
                                     product = product,
                                     loading = state.quickAddingProductId == product.id,
-                                    onAdd = { viewModel.quickAdd(product) },
+                                    onAdd = { onQuickAdd(product) },
                                     onClick = { onGoToOrder(CartManager.orderType.value) },
                                     modifier = Modifier.weight(1f),
                                 )
@@ -297,6 +316,7 @@ private fun RecommendCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(96.dp)
                 .background(cupBg, RoundedCornerShape(topStart = Radii.card, topEnd = Radii.card)),
             contentAlignment = Alignment.Center,
         ) {

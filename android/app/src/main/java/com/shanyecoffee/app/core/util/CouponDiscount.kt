@@ -18,9 +18,9 @@ object CouponDiscount {
 
     /** 展示文案：满 50 减 10 / 满 30 打 8 折 */
     fun displayText(type: String, threshold: Int, discount: Int): String {
-        val thresholdText = PriceFormat.fenToYuan(threshold).removePrefix("¥")
+        val thresholdText = yuanText(threshold)
         return if (type == "fixed") {
-            val discountText = PriceFormat.fenToYuan(discount).removePrefix("¥")
+            val discountText = yuanText(discount)
             "满 $thresholdText 减 $discountText"
         } else {
             val percent = (100 - discount) / 10.0
@@ -31,5 +31,10 @@ object CouponDiscount {
             }
             "满 $thresholdText 打 ${percentText} 折"
         }
+    }
+
+    private fun yuanText(fen: Int): String {
+        val yuan = PriceFormat.fenToYuan(fen).removePrefix("¥").removePrefix("-")
+        return if (yuan.endsWith(".00")) yuan.dropLast(3) else yuan
     }
 }

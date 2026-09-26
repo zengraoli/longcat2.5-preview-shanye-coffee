@@ -77,7 +77,41 @@ fun OrderScreen(
     val cartLines by CartManager.lines.collectAsState()
     val orderType by CartManager.orderType.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize().background(Cream)) {
+    OrderContent(
+        state = state,
+        cartLines = cartLines,
+        orderType = orderType,
+        onGoToCheckout = onGoToCheckout,
+        onOrderTypeChange = viewModel::setOrderType,
+        onCategorySelected = viewModel::selectCategory,
+        onRetry = viewModel::load,
+        onSpec = viewModel::openSpec,
+        onSpecDismiss = viewModel::closeSpec,
+        onSpecChange = viewModel::updateSpec,
+        onQuantityChange = viewModel::setQuantity,
+        onAddToCart = viewModel::addToCart,
+    )
+}
+
+/** 点单页内容（纯渲染，演示数据可直接传入用于截图测试） */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OrderContent(
+    state: OrderUiState,
+    cartLines: List<CartManager.Line>,
+    orderType: String,
+    onGoToCheckout: () -> Unit,
+    onOrderTypeChange: (String) -> Unit = {},
+    onCategorySelected: (Int) -> Unit = {},
+    onRetry: () -> Unit = {},
+    onSpec: (com.shanyecoffee.app.core.api.ProductDto) -> Unit = {},
+    onSpecDismiss: () -> Unit = {},
+    onSpecChange: (cupSize: String?, temperature: String?, sugar: String?) -> Unit = { _, _, _ -> },
+    onQuantityChange: (Int) -> Unit = {},
+    onAddToCart: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.fillMaxSize().background(Cream)) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 顶部：标题 + 取餐方式
             Row(
@@ -94,7 +128,7 @@ fun OrderScreen(
                 )
                 TypeToggle(
                     selected = orderType,
-                    onSelect = viewModel::setOrderType,
+                    onSelect = onOrderTypeChange,
                 )
             }
 
@@ -111,7 +145,7 @@ fun OrderScreen(
                         val selected = category.id == state.selectedCategoryId
                         Column(
                             modifier = Modifier
-                                .clickable { viewModel.selectCategory(category.id) }
+                                .clickable { onCategorySelected(category.id) }
                                 .padding(vertical = 6.dp)
                                 .testTag("tab_category_${category.id}"),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -138,7 +172,7 @@ fun OrderScreen(
             if (state.loading) {
                 StateViews.LoadingView()
             } else if (state.error != null) {
-                StateViews.ErrorView(message = state.error ?: "加载失败", onRetry = viewModel::load)
+                StateViews.ErrorView(message = state.error ?: "加载失败", onRetry = onRetry)
             } else {
                 LazyColumn(
                     modifier = Modifier
@@ -156,14 +190,14 @@ fun OrderScreen(
                         ProductCard(
                             product = product,
                             promo = state.isPromo(product.id),
-                            onSpec = { viewModel.openSpec(product) },
+                            onSpec = { onSpec(product) },
                         )
                     }
                 }
             }
         }
 
-        // 购物车条（固定在底部导航之上）
+        // 购物车条（固定在底部导航之上，悬浮样式）
         val promoDiscount = CartManager.promoDiscount(state.promoProductIds)
         val payTotal = cartLines.sumOf { it.unitPrice * it.quantity } - promoDiscount
         if (cartLines.isNotEmpty()) {
@@ -171,7 +205,8 @@ fun OrderScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .background(BrandGreen, RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .background(BrandGreen, RoundedCornerShape(24.dp))
                     .padding(horizontal = 20.dp, vertical = 14.dp)
                     .testTag("cart_bar"),
                 verticalAlignment = Alignment.CenterVertically,
@@ -214,10 +249,10 @@ fun OrderScreen(
         SpecBottomSheet(
             spec = spec,
             loading = state.specLoading,
-            onDismiss = viewModel::closeSpec,
-            onSpecChange = viewModel::updateSpec,
-            onQuantityChange = viewModel::setQuantity,
-            onAddToCart = viewModel::addToCart,
+            onDismiss = onSpecDismiss,
+            onSpecChange = onSpecChange,
+            onQuantityChange = onQuantityChange,
+            onAddToCart = onAddToCart,
         )
     }
 }
@@ -308,6 +343,8 @@ private fun ProductCard(
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary,
                     maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
                 if (promo) {
                     Spacer(modifier = Modifier.width(8.dp))
@@ -316,6 +353,7 @@ private fun ProductCard(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = Terracotta,
+                        maxLines = 1,
                         modifier = Modifier
                             .background(TagOrangeBg, RoundedCornerShape(6.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp),

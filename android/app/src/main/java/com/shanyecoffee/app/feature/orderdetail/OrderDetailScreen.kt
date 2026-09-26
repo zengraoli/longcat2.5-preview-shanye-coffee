@@ -15,7 +15,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,11 +27,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shanyecoffee.app.core.api.OrderDetailDto
 import com.shanyecoffee.app.core.data.SessionManager
 import com.shanyecoffee.app.core.ui.components.ScreenTitleBar
 import com.shanyecoffee.app.core.ui.components.StateViews
 import com.shanyecoffee.app.core.ui.theme.BrandGreen
-import com.shanyecoffee.app.core.ui.theme.Gold
 import com.shanyecoffee.app.core.ui.theme.Radii
 import com.shanyecoffee.app.core.ui.theme.TagOrangeBg
 import com.shanyecoffee.app.core.ui.theme.Terracotta
@@ -68,113 +67,122 @@ fun OrderDetailScreen(
         }
     }
 
+    if (state.loading) {
+        StateViews.LoadingView()
+    } else if (state.error != null || state.order == null) {
+        StateViews.ErrorView(message = state.error ?: "订单不存在", onRetry = viewModel::load)
+    } else {
+        OrderDetailContent(order = state.order!!, onBack = onBack)
+    }
+}
+
+/** 订单详情内容（纯渲染，演示数据可直接传入用于截图测试） */
+@Composable
+fun OrderDetailContent(
+    order: OrderDetailDto,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color(0xFFFAF6ED)),
+            .background(Color(0xFFFAF6ED)),
     ) {
         ScreenTitleBar(title = "订单详情", onBack = onBack)
 
-        if (state.loading) {
-            StateViews.LoadingView()
-        } else if (state.error != null || state.order == null) {
-            StateViews.ErrorView(message = state.error ?: "订单不存在", onRetry = viewModel::load)
-        } else {
-            val order = state.order!!
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // 取餐码卡片
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .fillMaxWidth()
+                    .background(BrandGreen, RoundedCornerShape(Radii.card))
+                    .padding(vertical = 24.dp)
+                    .testTag("pickup_card"),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // 取餐码卡片
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(BrandGreen, RoundedCornerShape(Radii.card))
-                        .padding(vertical = 24.dp)
-                        .testTag("pickup_card"),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(text = "取餐码", fontSize = 14.sp, color = Color.White)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = order.pickupCode,
-                        fontSize = 52.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        letterSpacing = 8.sp,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = OrderStatus.pickupSubtitle(order.status, order.paidAt),
-                        fontSize = 14.sp,
-                        color = Color(0xFFF5D9B8),
-                    )
-                }
+                Text(text = "取餐码", fontSize = 14.sp, color = Color.White)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = order.pickupCode,
+                    fontSize = 52.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    letterSpacing = 8.sp,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = OrderStatus.pickupSubtitle(order.status, order.paidAt),
+                    fontSize = 14.sp,
+                    color = Color(0xFFF5D9B8),
+                )
+            }
 
-                // 订单进度
-                Column(
+            // 订单进度
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(Radii.card))
+                    .padding(16.dp),
+            ) {
+                Text(
+                    text = "订单进度",
+                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                    color = TextPrimary,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                ProgressSteps(status = order.status)
+            }
+
+            // 订单信息
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(Radii.card))
+                    .padding(16.dp),
+            ) {
+                InfoRow(label = "订单号", value = order.orderNo)
+                InfoRow(label = "门店", value = order.storeName)
+                InfoRow(label = "下单时间", value = TimeFormat.isoToBeijingDateTime(order.createdAt))
+                InfoRow(label = "取餐方式", value = OrderStatus.typeLabel(order.type))
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White, RoundedCornerShape(Radii.card))
-                        .padding(16.dp),
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "订单进度",
-                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                        text = "实付",
+                        fontSize = 14.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = PriceFormat.fenToYuan(order.paidAmount),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
                         color = TextPrimary,
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    ProgressSteps(status = order.status)
                 }
-
-                // 订单信息
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White, RoundedCornerShape(Radii.card))
-                        .padding(16.dp),
-                ) {
-                    InfoRow(label = "订单号", value = order.orderNo)
-                    InfoRow(label = "门店", value = order.storeName)
-                    InfoRow(label = "下单时间", value = TimeFormat.isoToBeijingDateTime(order.createdAt))
-                    InfoRow(label = "取餐方式", value = OrderStatus.typeLabel(order.type))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "实付",
-                            fontSize = 14.sp,
-                            color = TextSecondary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = PriceFormat.fenToYuan(order.paidAmount),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
-                        )
-                    }
-                }
-
-                // 取餐提示
-                Text(
-                    text = "做好后会通知你，凭取餐码到柜台领取",
-                    fontSize = 13.sp,
-                    color = Terracotta,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(TagOrangeBg, RoundedCornerShape(Radii.thumb))
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
+
+            // 取餐提示
+            Text(
+                text = "做好后会通知你，凭取餐码到柜台领取",
+                fontSize = 13.sp,
+                color = Terracotta,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(TagOrangeBg, RoundedCornerShape(Radii.thumb))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -188,7 +196,7 @@ private fun ProgressSteps(status: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         steps.forEachIndexed { index, label ->
-            val done = current in 0..index && current >= 0
+            val done = current >= 0 && index <= current
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.testTag("step_$label"),
