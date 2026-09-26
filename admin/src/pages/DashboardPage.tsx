@@ -125,7 +125,11 @@ export function DashboardPage() {
               <AreaChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" />
                 <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="#78716c" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#78716c" />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  stroke="#78716c"
+                  tickFormatter={(value) => formatYuan(Number(value))}
+                />
                 <Tooltip
                   formatter={(value) => [formatYuan(Number(value)), '营业额']}
                   contentStyle={{ borderRadius: 8, border: '1px solid #e7e5e4' }}
