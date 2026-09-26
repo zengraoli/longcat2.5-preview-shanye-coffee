@@ -26,7 +26,7 @@
                 <view v-if="product.soldOut" class="p-soldout">售罄</view>
               </view>
               <view class="p-info">
-                <text class="p-name">{{ product.name }}</text>
+                <text class="p-name">{{ product.name }}<text v-if="isPromo(product.id)" class="p-tag">第二杯半价</text></text>
                 <text class="p-desc">{{ product.description }}</text>
                 <view class="p-bottom">
                   <text class="p-price">{{ formatYuan(product.price) }}</text>
@@ -42,7 +42,10 @@
       <view v-if="cartCount > 0" class="cart-bar" @tap="showCart = true">
         <view class="cart-left">
           <view class="cart-badge">{{ cartCount }}</view>
-          <text class="cart-total">{{ formatYuan(cartTotal) }}</text>
+          <view>
+            <text class="cart-total">{{ formatYuan(payTotal) }}</text>
+            <text v-if="promoDiscount > 0" class="cart-promo">已享第二杯半价 -{{ formatYuan(promoDiscount) }}</text>
+          </view>
         </view>
         <view class="cart-btn">去结算</view>
       </view>
@@ -125,7 +128,11 @@
           </view>
         </view>
         <view class="cart-footer">
-          <text class="cart-total-label">合计：{{ formatYuan(cartTotal) }}</text>
+          <view class="cart-amounts">
+            <text class="cart-total-label">原价 {{ formatYuan(cartTotal) }}</text>
+            <text v-if="promoDiscount > 0" class="cart-total-label cart-promo-label">第二杯半价 -{{ formatYuan(promoDiscount) }}</text>
+            <text class="cart-total-label strong">合计：{{ formatYuan(payTotal) }}</text>
+          </view>
           <view class="cart-checkout" @tap="goCheckout">去结算</view>
         </view>
       </view>
@@ -136,6 +143,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { request, formatYuan } from '@/utils/request'
+import { calcPromoDiscount } from '@/utils/promo'
 
 interface Category { id: number; name: string }
 interface Product { id: number; categoryId: number; name: string; description: string; price: number; soldOut: boolean; specs?: any[] }
@@ -143,6 +151,7 @@ interface CartItem { productId: number; productName: string; cupSize: string; te
 
 const categories = ref<Category[]>([])
 const products = ref<Product[]>([])
+const promoProductIds = ref<number[]>([])
 const activeCategory = ref(0)
 const scrollTop = ref(0)
 const showSpecModal = ref(false)
@@ -154,18 +163,26 @@ const cart = ref<CartItem[]>([])
 
 const cartCount = computed(() => cart.value.reduce((sum, i) => sum + i.quantity, 0))
 const cartTotal = computed(() => cart.value.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0))
+const promoDiscount = computed(() => calcPromoDiscount(cart.value, promoProductIds.value))
+const payTotal = computed(() => cartTotal.value - promoDiscount.value)
 
 onMounted(async () => {
   try {
-    const [c, p] = await Promise.all([
+    const [c, p, promo] = await Promise.all([
       request<Category[]>('/categories'),
       request<Product[]>('/products'),
+      request<{ productIds: number[] } | null>('/promotions/active'),
     ])
     categories.value = c
     products.value = p
+    promoProductIds.value = promo?.productIds ?? []
     if (c.length > 0) activeCategory.value = c[0].id
   } catch {}
 })
+
+function isPromo(productId: number) {
+  return promoProductIds.value.includes(productId)
+}
 
 function getProductsByCategory(catId: number) {
   return products.value.filter((p) => p.categoryId === catId)
@@ -340,6 +357,18 @@ function goCheckout() {
   color: #2C1810;
 }
 
+.p-tag {
+  display: inline-block;
+  margin-left: 8rpx;
+  padding: 0 10rpx;
+  border-radius: 6rpx;
+  background: #FDEADD;
+  color: #C05F2E;
+  font-size: 18rpx;
+  font-weight: 600;
+  vertical-align: 2rpx;
+}
+
 .p-desc {
   display: block;
   font-size: 20rpx;
@@ -404,8 +433,31 @@ function goCheckout() {
 }
 
 .cart-total {
+  display: block;
   font-size: 32rpx;
   font-weight: 700;
+}
+
+.cart-promo {
+  display: block;
+  font-size: 20rpx;
+  color: #F5C98A;
+}
+
+.cart-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4rpx;
+}
+
+.cart-total-label.strong {
+  font-size: 32rpx;
+}
+
+.cart-promo-label {
+  color: #C05F2E;
+  font-size: 24rpx;
 }
 
 .cart-btn {

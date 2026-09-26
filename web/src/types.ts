@@ -23,6 +23,14 @@ export interface Category {
   sort_order: number
 }
 
+export interface ActivePromotion {
+  id: number
+  name: string
+  startTime: string
+  endTime: string
+  productIds: number[]
+  products: Product[]}
+
 export interface Coupon {
   id: number
   userCouponId: number

@@ -5,6 +5,48 @@ import { ok } from '../reply.js';
 import { authRequired, requireAdminRole } from '../plugins/auth.js';
 
 export default async function promotionRoutes(app: FastifyInstance): Promise<void> {
+  // 公开接口：当前进行中的活动（供官网与小程序展示活动信息）
+  app.get('/api/promotions/active', async (_request, reply) => {
+    const db = getDb();
+    const now = new Date().toISOString();
+    const promo = db.prepare(
+      'SELECT id, name, start_time, end_time FROM promotions WHERE status = ? AND start_time <= ? AND end_time >= ? LIMIT 1',
+    ).get('active', now, now) as { id: number; name: string; start_time: string; end_time: string } | undefined;
+    if (!promo) {
+      ok(reply, null);
+      return;
+    }
+    const promoProductIds = (
+      db.prepare('SELECT product_id FROM promotion_products WHERE promotion_id = ?').all(promo.id) as Array<{ product_id: number }>
+    ).map((r) => r.product_id);
+    let products: Array<{ id: number; name: string; description: string; price: number; soldOut: boolean }> = [];
+    if (promoProductIds.length > 0) {
+      const placeholders = promoProductIds.map(() => '?').join(',');
+      const rows = db.prepare(
+        `SELECT p.id, p.name, p.description, p.base_price, p.sold_out,
+          (SELECT price_delta FROM product_specs WHERE product_id = p.id AND cup_size = 'medium' AND temperature = 'hot' AND sugar = 'standard') AS base_delta
+         FROM products p WHERE p.id IN (${placeholders})`,
+      ).all(...promoProductIds) as Array<{
+        id: number; name: string; description: string; base_price: number; sold_out: number; base_delta: number | null;
+      }>;
+      products = rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        price: r.base_price + (r.base_delta ?? 0),
+        soldOut: r.sold_out === 1,
+      }));
+    }
+    ok(reply, {
+      id: promo.id,
+      name: promo.name,
+      startTime: promo.start_time,
+      endTime: promo.end_time,
+      productIds: promoProductIds,
+      products,
+    });
+  });
+
   await app.register(async (instance) => {
     authRequired(instance);
     requireAdminRole(instance);

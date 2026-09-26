@@ -40,9 +40,13 @@
           <text>原价</text>
           <text>{{ formatYuan(originalAmount) }}</text>
         </view>
-        <view class="amount-row">
-          <text>优惠</text>
-          <text class="discount">-{{ formatYuan(discountAmount) }}</text>
+        <view v-if="promoDiscount > 0" class="amount-row">
+          <text>第二杯半价</text>
+          <text class="discount">-{{ formatYuan(promoDiscount) }}</text>
+        </view>
+        <view v-if="couponDiscount > 0" class="amount-row">
+          <text>优惠券</text>
+          <text class="discount">-{{ formatYuan(couponDiscount) }}</text>
         </view>
         <view class="amount-row total">
           <text>实付</text>
@@ -54,7 +58,10 @@
     <view class="footer-bar">
       <view class="footer-info">
         <text class="footer-label">实付</text>
-        <text class="footer-price">{{ formatYuan(paidAmount) }}</text>
+        <view>
+          <text class="footer-price">{{ formatYuan(paidAmount) }}</text>
+          <text v-if="totalDiscount > 0" class="footer-discount">已优惠 {{ formatYuan(totalDiscount) }}</text>
+        </view>
       </view>
       <view class="footer-btn" :class="{ disabled: submitting }" @tap="submitOrder">
         {{ submitting ? '提交中...' : '模拟支付' }}
@@ -66,6 +73,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { request, formatYuan } from '@/utils/request'
+import { calcPromoDiscount } from '@/utils/promo'
 
 interface CartItem { productId: number; productName: string; cupSize: string; temperature: string; sugar: string; quantity: number; unitPrice: number }
 interface BestCoupon { userCouponId: number; couponId: number; name: string; type: string; threshold: number; discount: number }
@@ -73,33 +81,45 @@ interface BestCoupon { userCouponId: number; couponId: number; name: string; typ
 const cartItems = ref<CartItem[]>([])
 const orderType = ref<'pickup' | 'dine_in'>('pickup')
 const bestCoupon = ref<BestCoupon | null>(null)
+const promoProductIds = ref<number[]>([])
 const submitting = ref(false)
 
 const storeId = ref(1)
 
 const originalAmount = computed(() => cartItems.value.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0))
-const discountAmount = computed(() => {
+const promoDiscount = computed(() => calcPromoDiscount(cartItems.value, promoProductIds.value))
+const amountAfterPromo = computed(() => originalAmount.value - promoDiscount.value)
+const couponDiscount = computed(() => {
   if (!bestCoupon.value) return 0
   const c = bestCoupon.value
-  if (originalAmount.value < c.threshold) return 0
-  if (c.type === 'fixed') return Math.min(c.discount, originalAmount.value)
-  return Math.min(Math.floor((originalAmount.value * c.discount) / 100), originalAmount.value)
+  if (amountAfterPromo.value < c.threshold) return 0
+  if (c.type === 'fixed') return Math.min(c.discount, amountAfterPromo.value)
+  return Math.min(Math.floor((amountAfterPromo.value * c.discount) / 100), amountAfterPromo.value)
 })
-const paidAmount = computed(() => originalAmount.value - discountAmount.value)
+const totalDiscount = computed(() => promoDiscount.value + couponDiscount.value)
+const paidAmount = computed(() => amountAfterPromo.value - couponDiscount.value)
 
 onLoad((options: any) => {
   if (options?.cart) {
     try { cartItems.value = JSON.parse(decodeURIComponent(options.cart)) } catch {}
   }
+  loadActivePromo()
   loadBestCoupon()
 })
 
+async function loadActivePromo() {
+  try {
+    const promo = await request<{ productIds: number[] } | null>('/promotions/active')
+    promoProductIds.value = promo?.productIds ?? []
+  } catch {}
+}
+
 async function loadBestCoupon() {
-  if (originalAmount.value <= 0) return
+  if (amountAfterPromo.value <= 0) return
   try {
     const res = await request<BestCoupon | null>('/coupons/best', {
       method: 'POST',
-      body: JSON.stringify({ amount: originalAmount.value }),
+      body: JSON.stringify({ amount: amountAfterPromo.value }),
     })
     bestCoupon.value = res
   } catch {}
@@ -301,6 +321,13 @@ async function submitOrder() {
   font-size: 40rpx;
   font-weight: 700;
   color: #8B4513;
+}
+
+.footer-discount {
+  display: block;
+  font-size: 20rpx;
+  color: #C05F2E;
+  margin-top: 2rpx;
 }
 
 .footer-btn {

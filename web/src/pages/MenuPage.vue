@@ -1,22 +1,44 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api, formatYuan } from '@/api'
-import type { Product, Category } from '@/types'
+import type { Product, Category, ActivePromotion } from '@/types'
 import { Coffee } from 'lucide-vue-next'
 
 const categories = ref<Category[]>([])
 const products = ref<Product[]>([])
+const promotion = ref<ActivePromotion | null>(null)
 const activeCategory = ref<number | null>(null)
 const loading = ref(true)
 
+const promoProductIds = computed(() => promotion.value?.productIds ?? [])
+
+function formatPromoRange(start: string, end: string): string {
+  const fmt = (iso: string) => {
+    const d = new Date(iso)
+    const bj = new Date(d.getTime() + 8 * 3600 * 1000)
+    return `${bj.getUTCMonth() + 1}月${bj.getUTCDate()}日`
+  }
+  return `${fmt(start)} - ${fmt(end)}`
+}
+
+const promoRange = computed(() =>
+  promotion.value ? formatPromoRange(promotion.value.startTime, promotion.value.endTime) : '',
+)
+
+const promoProductNames = computed(() =>
+  promotion.value?.products.map((p) => p.name).join('、') ?? '',
+)
+
 onMounted(async () => {
   try {
-    const [c, p] = await Promise.all([
+    const [c, p, promo] = await Promise.all([
       api.get<Category[]>('/categories'),
       api.get<Product[]>('/products'),
+      api.get<ActivePromotion | null>('/promotions/active'),
     ])
     categories.value = c
     products.value = p
+    promotion.value = promo
     if (c.length > 0) activeCategory.value = c[0].id
   } catch {} finally {
     loading.value = false
@@ -41,6 +63,17 @@ function filteredProducts(): Product[] {
         <h1 class="page-title">精选菜单</h1>
         <p class="page-desc">每一杯都是匠心之作</p>
       </header>
+
+      <div v-if="promotion" class="promo-banner">
+        <div class="promo-text">
+          <p class="promo-title">
+            <Coffee :size="18" />
+            {{ promotion.name }}
+          </p>
+          <p class="promo-desc">参与商品：{{ promoProductNames }}</p>
+          <p class="promo-range">{{ promoRange }}</p>
+        </div>
+      </div>
 
       <div class="category-tabs">
         <button
@@ -68,7 +101,10 @@ function filteredProducts(): Product[] {
             <span v-if="product.soldOut" class="soldout-badge">已售罄</span>
           </div>
           <div class="menu-info">
-            <h3 class="menu-name">{{ product.name }}</h3>
+            <h3 class="menu-name">
+              {{ product.name }}
+              <span v-if="promoProductIds.includes(product.id)" class="menu-promo-tag">第二杯半价</span>
+            </h3>
             <p class="menu-desc">{{ product.description }}</p>
             <div class="menu-footer">
               <span class="menu-price">{{ formatYuan(product.price) }}</span>
@@ -110,6 +146,47 @@ function filteredProducts(): Product[] {
 .page-desc {
   color: var(--brand-text-light);
   font-size: 1rem;
+}
+
+.promo-banner {
+  max-width: 1200px;
+  margin: 0 auto 32px;
+  background: linear-gradient(120deg, #c05f2e, #a84e22);
+  border-radius: var(--radius-lg);
+  padding: 20px 28px;
+  color: #fff;
+}
+
+.promo-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.promo-desc {
+  font-size: 0.85rem;
+  opacity: 0.92;
+  margin-bottom: 4px;
+}
+
+.promo-range {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.menu-promo-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #fdeadd;
+  color: #c05f2e;
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
 }
 
 .category-tabs {

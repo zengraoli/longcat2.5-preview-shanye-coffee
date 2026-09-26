@@ -12,7 +12,7 @@
       </picker>
     </view>
 
-    <swiper class="banner" circular autoplay interval="3000" indicator-dots indicator-active-color="#8B4513">
+    <swiper v-if="banners.length" class="banner" circular autoplay interval="3000" indicator-dots indicator-active-color="#8B4513">
       <swiper-item v-for="(item, index) in banners" :key="index">
         <view class="banner-item" :style="{ background: item.bg }">
           <view class="banner-text">
@@ -63,6 +63,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { request, formatYuan } from '@/utils/request'
+import { formatPromoRange } from '@/utils/promo'
 
 interface Store {
   id: number
@@ -78,24 +79,44 @@ interface Product {
   soldOut: boolean
 }
 
+interface ActivePromotion {
+  id: number
+  name: string
+  startTime: string
+  endTime: string
+  productIds: number[]
+  products: Product[]
+}
+
 const stores = ref<Store[]>([])
 const products = ref<Product[]>([])
+const promotion = ref<ActivePromotion | null>(null)
 const selectedStoreIndex = ref(0)
 const loading = ref(true)
 
-const banners = [
-  { title: '新品上市', desc: '秋日限定', bg: '#E8C9A0' },
-  { title: '精选产地', desc: '匠心烘焙', bg: '#D4A574' },
-  { title: '会员专享', desc: '积分兑换', bg: '#FDF8F3' },
-]
+const banners = computed(() => {
+  if (!promotion.value) return []
+  const names = promotion.value.products.map((p) => p.name).join('、')
+  return [
+    {
+      title: promotion.value.name,
+      desc: `参与商品：${names} · ${formatPromoRange(promotion.value.startTime, promotion.value.endTime)}`,
+      bg: '#C05F2E',
+    },
+  ]
+})
 
 const storeNames = computed(() => stores.value.map((s) => s.name))
 const currentStore = computed(() => stores.value[selectedStoreIndex.value])
 
 onMounted(async () => {
   try {
-    const storeList = await request<Store[]>('/stores')
+    const [storeList, promo] = await Promise.all([
+      request<Store[]>('/stores'),
+      request<ActivePromotion | null>('/promotions/active'),
+    ])
     stores.value = storeList
+    promotion.value = promo
     await loadProducts()
   } catch {} finally {
     loading.value = false
