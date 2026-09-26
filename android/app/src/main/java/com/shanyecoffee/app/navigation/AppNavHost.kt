@@ -31,8 +31,11 @@ private fun NavHostContent(navController: NavHostController) {
         ) {
             LoginScreen(
                 onLoginSuccess = {
-                    navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
+                    // 登录后回到原页面；无来源页（如 deep link 直接进入）时回首页
+                    if (!navController.popBackStack()) {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.LOGIN) { inclusive = true }
+                        }
                     }
                 },
             )
