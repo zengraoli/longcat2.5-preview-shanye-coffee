@@ -41,6 +41,9 @@ interface ShanYeApiService {
     @POST("coupons/best")
     suspend fun bestCoupon(@Body body: BestCouponRequest): ApiResponse<BestCouponDto?>
 
+    @POST("coupons/{id}/claim")
+    suspend fun claimCoupon(@Path("id") id: Int): ApiResponse<Unit?>
+
     @POST("orders")
     suspend fun createOrder(@Body body: CreateOrderRequest): ApiResponse<CreateOrderResponse>
 

@@ -10,6 +10,7 @@ object CartManager {
 
     data class Line(
         val productId: Int,
+        val categoryId: Int = 1,
         val name: String,
         val cupSize: String,
         val temperature: String,

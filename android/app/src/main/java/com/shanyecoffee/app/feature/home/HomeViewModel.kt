@@ -84,6 +84,7 @@ class HomeViewModel : ViewModel() {
                 CartManager.add(
                     CartManager.Line(
                         productId = detail.id,
+                        categoryId = detail.categoryId,
                         name = detail.name,
                         cupSize = DEFAULT_CUP,
                         temperature = DEFAULT_TEMPERATURE,

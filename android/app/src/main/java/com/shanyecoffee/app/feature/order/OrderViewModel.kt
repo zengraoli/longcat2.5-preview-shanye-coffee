@@ -166,6 +166,7 @@ class OrderViewModel : ViewModel() {
         CartManager.add(
             CartManager.Line(
                 productId = product.id,
+                categoryId = product.categoryId,
                 name = product.name,
                 cupSize = spec.cupSize,
                 temperature = spec.temperature,
