@@ -2,6 +2,7 @@ package com.shanyecoffee.app
 
 import android.app.Application
 import com.shanyecoffee.app.core.api.ShanYeClient
+import com.shanyecoffee.app.core.data.ServiceLocator
 import com.shanyecoffee.app.core.data.SessionManager
 import com.shanyecoffee.app.core.data.TokenStore
 import kotlinx.coroutines.CoroutineScope
@@ -16,6 +17,7 @@ class ShanYeApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         ShanYeClient.init(this)
+        ServiceLocator.init(this)
         SessionManager.attachStore(TokenStore(this))
         appScope.launch { SessionManager.restore() }
     }

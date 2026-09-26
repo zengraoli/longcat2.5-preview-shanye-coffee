@@ -23,7 +23,7 @@ export default async function promotionRoutes(app: FastifyInstance): Promise<voi
     if (promoProductIds.length > 0) {
       const placeholders = promoProductIds.map(() => '?').join(',');
       const rows = db.prepare(
-        `SELECT p.id, p.name, p.description, p.base_price, p.sold_out,
+        `SELECT p.id, p.category_id, p.name, p.description, p.base_price, p.sold_out,
           (SELECT price_delta FROM product_specs WHERE product_id = p.id AND cup_size = 'medium' AND temperature = 'hot' AND sugar = 'standard') AS base_delta
          FROM products p WHERE p.id IN (${placeholders})`,
       ).all(...promoProductIds) as Array<{
@@ -31,6 +31,7 @@ export default async function promotionRoutes(app: FastifyInstance): Promise<voi
       }>;
       products = rows.map((r) => ({
         id: r.id,
+        categoryId: r.category_id,
         name: r.name,
         description: r.description,
         price: r.base_price + (r.base_delta ?? 0),

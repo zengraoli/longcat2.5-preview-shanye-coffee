@@ -46,7 +46,9 @@ private fun NavHostContent(navController: NavHostController) {
             deepLinks = listOf(navDeepLink { uriPattern = "shanye://home" }),
         ) {
             HomeScreen(
-                onGoToOrder = { navController.navigate(Routes.ORDER) },
+                onGoToOrder = { orderType ->
+                    navController.navigate(Routes.ORDER)
+                },
                 onNeedLogin = { navController.navigate(Routes.LOGIN) },
             )
         }

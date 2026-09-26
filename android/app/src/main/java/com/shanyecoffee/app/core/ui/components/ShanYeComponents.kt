@@ -118,6 +118,46 @@ fun CupArt(
     Box(modifier = modifier.background(cupBg, RoundedCornerShape(Radii.thumb)))
 }
 
+object StateViews {
+
+    @Composable
+    fun LoadingView(modifier: Modifier = Modifier) {
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = BrandGreen)
+        }
+    }
+
+    @Composable
+    fun ErrorView(
+        message: String,
+        modifier: Modifier = Modifier,
+        onRetry: (() -> Unit)? = null,
+    ) {
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = message, color = TextSecondary, textAlign = TextAlign.Center)
+                if (onRetry != null) {
+                    androidx.compose.material3.TextButton(onClick = onRetry) {
+                        Text("重试", color = Terracotta)
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun EmptyView(text: String, modifier: Modifier = Modifier) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = text, color = TextSecondary, textAlign = TextAlign.Center)
+        }
+    }
+}
+
 /** 加载态 */
 @Composable
 fun LoadingView(modifier: Modifier = Modifier) {
@@ -156,6 +196,14 @@ fun EmptyView(text: String, modifier: Modifier = Modifier) {
     ) {
         Text(text = text, color = TextSecondary, textAlign = TextAlign.Center)
     }
+}
+
+/** 按商品分类返回插画配色（背景底色 / 液面颜色） */
+fun categoryCupColors(categoryId: Int): Pair<Color, Color> = when (categoryId) {
+    2 -> Color(0xFFDDE8D2) to Color(0xFFC9B18A)   // 茶饮：浅绿底 + 茶色液面
+    3 -> Color(0xFFEFE3D0) to Color(0xFFD9B98A)   // 轻食：浅杏底
+    4 -> Color(0xFFDDE5EC) to Color(0xFF9AA5B1)   // 周边：浅灰蓝底
+    else -> Color(0xFFF6E7C8) to Color(0xFFC08A4A) // 奶油黄底 + 咖啡液面
 }
 
 /** 页面标题栏（返回 + 标题） */

@@ -17,7 +17,7 @@ cd android
 
 ## 接口对接
 
-- 接口基地址写在 `BuildConfig.API_BASE_URL`，默认 `http://127.0.0.1:3300`（`app/build.gradle.kts`）。
+- 接口基地址写在 `BuildConfig.API_BASE_URL`，默认 `http://127.0.0.1:3300/api/`（server 接口统一挂在 `/api` 下，`app/build.gradle.kts`）。
 - 真机调试：手机与电脑同一网络或用 `adb reverse tcp:3300 tcp:3300` 后访问本机 server。
 - 已为 `127.0.0.1`、`localhost`、`10.0.2.2` 配置明文 HTTP 白名单（network security config）。
 - 登录态保存在 DataStore；接口返回未登录（1002/1003）时统一跳转登录页。

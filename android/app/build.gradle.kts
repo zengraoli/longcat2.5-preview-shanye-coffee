@@ -17,8 +17,8 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        // 接口基地址：真机调试时通过 adb reverse tcp:3300 tcp:3300 访问本机 server
-        buildConfigField("String", "API_BASE_URL", "\"http://127.0.0.1:3300\"")
+        // 接口基地址（server 接口统一挂在 /api 下）；真机调试时通过 adb reverse tcp:3300 tcp:3300 访问本机 server
+        buildConfigField("String", "API_BASE_URL", "\"http://127.0.0.1:3300/api/\"")
     }
 
     buildTypes {
@@ -56,6 +56,12 @@ android {
             isIncludeAndroidResources = true
         }
     }
+}
+
+// 测试 JVM 中访问本机 server（127.0.0.1）时绕过代理
+tasks.withType<Test> {
+    systemProperty("http.nonProxyHosts", "localhost|127.0.0.1")
+    systemProperty("https.nonProxyHosts", "localhost|127.0.0.1")
 }
 
 roborazzi {
