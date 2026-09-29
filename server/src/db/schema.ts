@@ -84,6 +84,7 @@ const STATEMENTS: string[] = [
     discount_rate INTEGER,
     valid_days INTEGER NOT NULL DEFAULT 30,
     total_stock INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
     sort INTEGER NOT NULL DEFAULT 0
   )`,
 
@@ -149,5 +150,10 @@ export function migrate(db: Database) {
   const cols = db.prepare('PRAGMA table_info(products)').all() as { name: string }[];
   if (!cols.some((c) => c.name === 'drink')) {
     db.exec('ALTER TABLE products ADD COLUMN drink INTEGER NOT NULL DEFAULT 0');
+  }
+  // 兼容旧库：补 coupon_templates.enabled 列
+  const tcols = db.prepare('PRAGMA table_info(coupon_templates)').all() as { name: string }[];
+  if (!tcols.some((c) => c.name === 'enabled')) {
+    db.exec('ALTER TABLE coupon_templates ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1');
   }
 }
