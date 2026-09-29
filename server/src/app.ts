@@ -6,6 +6,7 @@ import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
 import storeRoutes from './routes/stores.js';
 import productRoutes from './routes/products.js';
+import couponRoutes from './routes/coupons.js';
 
 export interface BuildAppOptions {
   /** 数据库文件路径，默认取 config.dbFile；测试可传 :memory: */
@@ -65,6 +66,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(authRoutes);
   await app.register(storeRoutes);
   await app.register(productRoutes);
+  await app.register(couponRoutes);
 
   return app;
 }
