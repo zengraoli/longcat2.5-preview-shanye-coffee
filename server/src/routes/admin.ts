@@ -185,6 +185,14 @@ export default async function adminRoutes(app: FastifyInstance) {
     },
   );
 
+  // 可领取的优惠券模板（公开，仅启用）
+  app.get('/api/coupon-templates', async (_req, reply) => {
+    const rows = getDb()
+      .prepare('SELECT * FROM coupon_templates WHERE enabled = 1 ORDER BY sort, id')
+      .all() as TemplateRow[];
+    ok(reply, rows.map(templateView));
+  });
+
   // 创建优惠券模板（仅管理员）
   app.post<{ Body: Record<string, unknown> }>(
     '/api/admin/coupon-templates',

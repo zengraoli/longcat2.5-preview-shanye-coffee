@@ -85,3 +85,15 @@ export interface Coupon {
   expiresAt: string;
   usable: boolean;
 }
+
+export interface CouponTemplate {
+  id: number;
+  name: string;
+  type: 'full_reduction' | 'discount';
+  threshold: number;
+  discountAmount: number | null;
+  discountRate: number | null;
+  validDays: number;
+  totalStock: number;
+  enabled: boolean;
+}

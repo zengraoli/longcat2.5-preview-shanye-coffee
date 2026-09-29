@@ -24,9 +24,9 @@ export function maskPhone(phone: string | null | undefined): string {
 
 /** 规格中文描述 */
 export function specText(spec: {
-  cup: string;
-  temperature: string;
-  sugar: string;
+  cup: string | null;
+  temperature: string | null;
+  sugar: string | null;
 }): string {
   const cup = spec.cup === 'large' ? '大杯' : '中杯';
   const temp = spec.temperature === 'ice' ? '冰' : '热';
