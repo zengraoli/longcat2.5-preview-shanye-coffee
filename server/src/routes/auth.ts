@@ -95,7 +95,7 @@ export default async function authRoutes(app: FastifyInstance) {
         throw err(ErrorCode.ADMIN_CREDENTIALS_INVALID, '账号或密码错误');
       }
       const admin = getDb()
-        .prepare('SELECT id, username, name, role, store_id, password_hash FROM admins WHERE username = ?')
+        .prepare('SELECT id, username, name, role, store_id, password_hash, enabled FROM admins WHERE username = ?')
         .get(username) as
         | {
             id: number;
@@ -104,10 +104,14 @@ export default async function authRoutes(app: FastifyInstance) {
             role: 'admin' | 'staff';
             store_id: number | null;
             password_hash: string;
+            enabled: number;
           }
         | undefined;
       if (!admin || admin.password_hash !== hashPassword(password)) {
         throw err(ErrorCode.ADMIN_CREDENTIALS_INVALID, '账号或密码错误');
+      }
+      if (admin.enabled !== 1) {
+        throw err(ErrorCode.FORBIDDEN, '账号已停用', 403);
       }
       const token = issueAdminToken(admin.id);
       ok(reply, {

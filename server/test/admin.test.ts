@@ -126,7 +126,74 @@ describe('T14 后台管理接口', () => {
     });
   });
 
-  it('店员不能访问会员/优惠券/门店管理接口', async () => {
+  it('新增后台账号并分配角色', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/accounts',
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { username: 'staff02', password: 'staff123', name: '店员小李', role: 'staff', store_id: 2 },
+    });
+    expect(res.statusCode).toBe(200);
+    const a = res.json().data;
+    expect(a.role).toBe('staff');
+    expect(a.storeId).toBe(2);
+    expect(a.enabled).toBe(true);
+
+    // 该账号可登录
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/admin/login',
+      payload: { username: 'staff02', password: 'staff123' },
+    });
+    expect(login.statusCode).toBe(200);
+  });
+
+  it('停用账号后无法登录', async () => {
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/admin/accounts',
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const staff02 = list.json().data.find((a: { username: string }) => a.username === 'staff02');
+    const disable = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/accounts/${staff02.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { enabled: false },
+    });
+    expect(disable.statusCode).toBe(200);
+    expect(disable.json().data.enabled).toBe(false);
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/admin/login',
+      payload: { username: 'staff02', password: 'staff123' },
+    });
+    expect(login.statusCode).toBe(403);
+  });
+
+  it('重置密码后可登录', async () => {
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/admin/accounts',
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const staff02 = list.json().data.find((a: { username: string }) => a.username === 'staff02');
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/accounts/${staff02.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { password: 'newpass123', enabled: true },
+    });
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/admin/login',
+      payload: { username: 'staff02', password: 'newpass123' },
+    });
+    expect(login.statusCode).toBe(200);
+  });
+
+  it('店员不能访问账号管理接口', async () => {
     const staffToken = issueAdminToken(2);
     const r1 = await app.inject({
       method: 'GET',

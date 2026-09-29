@@ -4,6 +4,7 @@ import { err, ErrorCode } from '../lib/errors.js';
 import { ok } from '../lib/reply.js';
 import { maskPhone } from '../lib/mask.js';
 import { levelForPoints } from '../services/points.js';
+import { hashPassword } from '../db/seed.js';
 
 interface StoreRow {
   id: number;
@@ -35,6 +36,16 @@ interface TemplateRow {
   total_stock: number;
   enabled: number;
   sort: number;
+}
+
+interface AdminRow {
+  id: number;
+  username: string;
+  password_hash: string;
+  name: string;
+  role: 'admin' | 'staff';
+  store_id: number | null;
+  enabled: number;
 }
 
 function templateView(t: TemplateRow) {
@@ -226,6 +237,114 @@ export default async function adminRoutes(app: FastifyInstance) {
         .prepare('SELECT * FROM coupon_templates WHERE id = ?')
         .get(Number(info.lastInsertRowid)) as TemplateRow;
       ok(reply, templateView(row));
+    },
+  );
+
+  // 后台账号列表（仅管理员）
+  app.get(
+    '/api/admin/accounts',
+    { preHandler: [app.requireAdmin] },
+    async (_req, reply) => {
+      const rows = getDb()
+        .prepare('SELECT * FROM admins ORDER BY id')
+        .all() as AdminRow[];
+      ok(
+        reply,
+        rows.map((a) => ({
+          id: a.id,
+          username: a.username,
+          name: a.name,
+          role: a.role,
+          storeId: a.store_id,
+          enabled: a.enabled === 1,
+        })),
+      );
+    },
+  );
+
+  // 新增后台账号（仅管理员）
+  app.post<{ Body: Record<string, unknown> }>(
+    '/api/admin/accounts',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const body = req.body ?? {};
+      const { username, password, name, role, store_id } = body;
+      if (!username || typeof username !== 'string') {
+        throw err(ErrorCode.VALIDATION, '账号非法');
+      }
+      if (!password || typeof password !== 'string' || password.length < 6) {
+        throw err(ErrorCode.VALIDATION, '密码至少 6 位');
+      }
+      if (!name || typeof name !== 'string') {
+        throw err(ErrorCode.VALIDATION, '姓名非法');
+      }
+      if (role !== 'admin' && role !== 'staff') {
+        throw err(ErrorCode.VALIDATION, '角色非法');
+      }
+      const db = getDb();
+      const exists = db.prepare('SELECT id FROM admins WHERE username = ?').get(username);
+      if (exists) throw err(ErrorCode.CONFLICT, '账号已存在', 409);
+      if (role === 'staff' && store_id != null) {
+        const store = db.prepare('SELECT id FROM stores WHERE id = ?').get(Number(store_id));
+        if (!store) throw err(ErrorCode.VALIDATION, '门店不存在');
+      }
+      const info = db
+        .prepare(
+          `INSERT INTO admins (username, password_hash, name, role, store_id, enabled)
+           VALUES (?, ?, ?, ?, ?, 1)`,
+        )
+        .run(username, hashPassword(password), name, role, role === 'staff' ? store_id ?? null : null);
+      const row = db.prepare('SELECT * FROM admins WHERE id = ?').get(Number(info.lastInsertRowid)) as AdminRow;
+      ok(reply, {
+        id: row.id,
+        username: row.username,
+        name: row.name,
+        role: row.role,
+        storeId: row.store_id,
+        enabled: row.enabled === 1,
+      });
+    },
+  );
+
+  // 编辑账号 / 重置密码 / 停用启用（仅管理员）
+  app.patch<{ Params: { id: string }; Body: Record<string, unknown> }>(
+    '/api/admin/accounts/:id',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        throw err(ErrorCode.VALIDATION, '账号 ID 非法');
+      }
+      const db = getDb();
+      const a = db.prepare('SELECT * FROM admins WHERE id = ?').get(id) as AdminRow | undefined;
+      if (!a) throw err(ErrorCode.NOT_FOUND, '账号不存在', 404);
+      const body = req.body ?? {};
+      const { name, role, store_id, enabled, password } = body;
+      if (role !== undefined && role !== 'admin' && role !== 'staff') {
+        throw err(ErrorCode.VALIDATION, '角色非法');
+      }
+      if (password !== undefined && (typeof password !== 'string' || password.length < 6)) {
+        throw err(ErrorCode.VALIDATION, '密码至少 6 位');
+      }
+      db.prepare(
+        `UPDATE admins SET name = ?, role = ?, store_id = ?, enabled = ?, password_hash = ? WHERE id = ?`,
+      ).run(
+        name ?? a.name,
+        role ?? a.role,
+        role === 'staff' ? store_id ?? a.store_id : null,
+        enabled === undefined ? a.enabled : enabled ? 1 : 0,
+        password ? hashPassword(password) : a.password_hash,
+        id,
+      );
+      const row = db.prepare('SELECT * FROM admins WHERE id = ?').get(id) as AdminRow;
+      ok(reply, {
+        id: row.id,
+        username: row.username,
+        name: row.name,
+        role: row.role,
+        storeId: row.store_id,
+        enabled: row.enabled === 1,
+      });
     },
   );
 

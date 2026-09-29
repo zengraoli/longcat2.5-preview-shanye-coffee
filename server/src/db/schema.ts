@@ -21,7 +21,8 @@ const STATEMENTS: string[] = [
     password_hash TEXT NOT NULL,
     name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('admin','staff')),
-    store_id INTEGER REFERENCES stores(id)
+    store_id INTEGER REFERENCES stores(id),
+    enabled INTEGER NOT NULL DEFAULT 1
   )`,
 
   `CREATE TABLE IF NOT EXISTS admin_tokens (
@@ -155,5 +156,10 @@ export function migrate(db: Database) {
   const tcols = db.prepare('PRAGMA table_info(coupon_templates)').all() as { name: string }[];
   if (!tcols.some((c) => c.name === 'enabled')) {
     db.exec('ALTER TABLE coupon_templates ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1');
+  }
+  // 兼容旧库：补 admins.enabled 列
+  const acols = db.prepare('PRAGMA table_info(admins)').all() as { name: string }[];
+  if (!acols.some((c) => c.name === 'enabled')) {
+    db.exec('ALTER TABLE admins ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1');
   }
 }
