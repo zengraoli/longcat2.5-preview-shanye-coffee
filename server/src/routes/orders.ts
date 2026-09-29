@@ -453,7 +453,7 @@ export default async function orderRoutes(app: FastifyInstance) {
   );
 
   // 后台订单列表（管理员全部；店员仅本门店）
-  app.get<{ Querystring: { store_id?: string; status?: string } }>(
+  app.get<{ Querystring: { store_id?: string; status?: string; start?: string; end?: string } }>(
     '/api/admin/orders',
     { preHandler: [app.requireAdminOrStaff] },
     async (req, reply) => {
@@ -477,6 +477,14 @@ export default async function orderRoutes(app: FastifyInstance) {
         }
         conds.push('o.status = ?');
         params.push(req.query.status);
+      }
+      if (req.query.start !== undefined) {
+        conds.push('o.created_at >= ?');
+        params.push(new Date(req.query.start).toISOString());
+      }
+      if (req.query.end !== undefined) {
+        conds.push('o.created_at <= ?');
+        params.push(new Date(req.query.end).toISOString());
       }
       const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
       const rows = db
