@@ -6,6 +6,7 @@ import { ok } from '../lib/reply.js';
 import { maskPhone } from '../lib/mask.js';
 import { bestCoupon, isCouponUsable, type CouponTemplate, type MemberCoupon } from '../services/coupon.js';
 import { canAdvance, computeOrderAmount, isBeforePayment, type OrderStatus } from '../services/order.js';
+import { pointsForAmount } from '../services/points.js';
 
 interface ProductRow {
   id: number;
@@ -382,6 +383,21 @@ export default async function orderRoutes(app: FastifyInstance) {
           db.prepare(
             "UPDATE member_coupons SET status = 'used', used_at = ?, order_id = ? WHERE id = ?",
           ).run(now, id, order.coupon_id);
+        }
+        // 支付后按实付金额积分：每 1 元积 1 分
+        if (order.member_id && order.payable_amount > 0) {
+          const earned = pointsForAmount(order.payable_amount);
+          if (earned > 0) {
+            const member = db
+              .prepare('SELECT points FROM members WHERE id = ?')
+              .get(order.member_id) as { points: number };
+            const balance = member.points + earned;
+            db.prepare('UPDATE members SET points = ? WHERE id = ?').run(balance, order.member_id);
+            db.prepare(
+              `INSERT INTO point_logs (member_id, order_id, points, balance, remark, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+            ).run(order.member_id, id, earned, balance, '消费积分', now);
+          }
         }
       });
       tx();

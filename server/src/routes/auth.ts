@@ -5,6 +5,7 @@ import { err, ErrorCode } from '../lib/errors.js';
 import { hashPassword } from '../db/seed.js';
 import { issueAdminToken, issueMemberToken } from '../lib/tokens.js';
 import { ok } from '../lib/reply.js';
+import { levelForPoints } from '../services/points.js';
 
 const PHONE_RE = /^1\d{10}$/;
 
@@ -67,6 +68,7 @@ export default async function authRoutes(app: FastifyInstance) {
           phone: member.phone,
           nickname: member.nickname,
           points: member.points,
+          level: levelForPoints(member.points),
         },
       });
     },
@@ -140,6 +142,7 @@ export default async function authRoutes(app: FastifyInstance) {
         phone: member.phone,
         nickname: member.nickname,
         points: member.points,
+        level: levelForPoints(member.points),
       });
     },
   );
