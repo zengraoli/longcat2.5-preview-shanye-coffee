@@ -62,7 +62,16 @@ export default async function couponRoutes(app: FastifyInstance) {
   // 领取优惠券（会员）
   app.post<{ Params: { templateId: string } }>(
     '/api/coupons/:templateId/claim',
-    { preHandler: [app.authenticate] },
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        params: {
+          type: 'object',
+          required: ['templateId'],
+          properties: { templateId: { type: 'integer' } },
+        },
+      },
+    },
     async (req, reply) => {
       if (req.user?.type !== 'member') {
         throw err(ErrorCode.FORBIDDEN, '无权限', 403);

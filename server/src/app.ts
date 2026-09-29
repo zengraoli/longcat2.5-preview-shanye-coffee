@@ -1,4 +1,6 @@
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { AppError, ErrorCode } from './lib/errors.js';
 import { initDb } from './db/index.js';
 import { registerAuth } from './plugins/auth.js';
@@ -63,6 +65,18 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   // 注意：registerAuth 必须以普通函数调用（而非 app.register），
   // 否则装饰器只作用于封装子上下文，后续路由无法继承。
+  // OpenAPI 文档页（/docs）
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: '山野咖啡点单平台 API',
+        version: '0.7.0',
+        description: '会员、门店、商品、优惠券、订单、积分等接口文档。',
+      },
+    },
+  });
+  await app.register(swaggerUi, { routePrefix: '/docs' });
+
   await registerAuth(app);
   await registerCouponDecorator(app);
   await app.register(healthRoutes);

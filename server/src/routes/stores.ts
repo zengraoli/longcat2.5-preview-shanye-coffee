@@ -16,7 +16,38 @@ interface StoreRow {
 
 /** 门店路由：列表与详情（公开接口）。 */
 export default async function storeRoutes(app: FastifyInstance) {
-  app.get('/api/stores', async (_req, reply) => {
+  app.get(
+    '/api/stores',
+    {
+      schema: {
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'integer' },
+              message: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'integer' },
+                    name: { type: 'string' },
+                    address: { type: 'string' },
+                    phone: { type: 'string' },
+                    openTime: { type: 'string' },
+                    closeTime: { type: 'string' },
+                    status: { type: 'string' },
+                    isOpen: { type: 'boolean' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (_req, reply) => {
     const rows = getDb()
       .prepare('SELECT * FROM stores ORDER BY sort, id')
       .all() as StoreRow[];
@@ -35,7 +66,18 @@ export default async function storeRoutes(app: FastifyInstance) {
     );
   });
 
-  app.get<{ Params: { id: string } }>('/api/stores/:id', async (req, reply) => {
+  app.get<{ Params: { id: string } }>(
+    '/api/stores/:id',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'integer' } },
+        },
+      },
+    },
+    async (req, reply) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {
       throw err(ErrorCode.VALIDATION, '门店 ID 非法');

@@ -332,7 +332,16 @@ export default async function orderRoutes(app: FastifyInstance) {
   // 订单详情（会员，仅本人）
   app.get<{ Params: { id: string } }>(
     '/api/orders/:id',
-    { preHandler: [app.authenticate] },
+    {
+      preHandler: [app.authenticate],
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'integer' } },
+        },
+      },
+    },
     async (req, reply) => {
       if (req.user?.type !== 'member') {
         throw err(ErrorCode.FORBIDDEN, '无权限', 403);

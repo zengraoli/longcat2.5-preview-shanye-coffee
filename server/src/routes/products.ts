@@ -50,7 +50,29 @@ function getProductWithSpecs(id: number) {
 /** 商品路由：分类、商品列表/详情（用户端），后台上下架与售罄。 */
 export default async function productRoutes(app: FastifyInstance) {
   // 分类列表
-  app.get('/api/categories', async (_req, reply) => {
+  app.get(
+    '/api/categories',
+    {
+      schema: {
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'integer' },
+              message: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: { id: { type: 'integer' }, name: { type: 'string' } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (_req, reply) => {
     const rows = getDb()
       .prepare('SELECT id, name, sort FROM categories ORDER BY sort, id')
       .all() as { id: number; name: string; sort: number }[];
@@ -101,7 +123,18 @@ export default async function productRoutes(app: FastifyInstance) {
   );
 
   // 用户端商品详情：仅上架商品
-  app.get<{ Params: { id: string } }>('/api/products/:id', async (req, reply) => {
+  app.get<{ Params: { id: string } }>(
+    '/api/products/:id',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: { id: { type: 'integer' } },
+        },
+      },
+    },
+    async (req, reply) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {
       throw err(ErrorCode.VALIDATION, '商品 ID 非法');
