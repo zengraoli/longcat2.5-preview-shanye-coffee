@@ -1,0 +1,290 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { FastifyInstance } from 'fastify';
+import { buildApp } from '../src/app.js';
+import { issueAdminToken, issueMemberToken } from '../src/lib/tokens.js';
+import { canAdvance, computeOrderAmount } from '../src/services/order.js';
+
+describe('T06 订单服务（纯函数）', () => {
+  it('金额明细：原价、优惠、实付正确', () => {
+    const r = computeOrderAmount(
+      [
+        { price: 2800, quantity: 2 },
+        { price: 1500, quantity: 1 },
+      ],
+      500,
+    );
+    expect(r.originalAmount).toBe(7100);
+    expect(r.discountAmount).toBe(500);
+    expect(r.payableAmount).toBe(6600);
+  });
+
+  it('优惠不超过原价', () => {
+    const r = computeOrderAmount([{ price: 1000, quantity: 1 }], 2000);
+    expect(r.discountAmount).toBe(1000);
+    expect(r.payableAmount).toBe(0);
+  });
+
+  it('状态流转：已支付→制作中→待取餐→已完成', () => {
+    expect(canAdvance('paid', 'making')).toBe(true);
+    expect(canAdvance('making', 'ready')).toBe(true);
+    expect(canAdvance('ready', 'completed')).toBe(true);
+    expect(canAdvance('pending_payment', 'making')).toBe(false);
+    expect(canAdvance('completed', 'ready')).toBe(false);
+    expect(canAdvance('cancelled', 'paid')).toBe(false);
+  });
+});
+
+describe('T06 订单接口', () => {
+  let app: FastifyInstance;
+  let token = '';
+  let adminToken = '';
+  let staffToken = '';
+  let orderId = 0;
+
+  beforeAll(async () => {
+    app = await buildApp({ dbFile: ':memory:', logger: false });
+    // 先登录创建会员，再签发 token
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/member/login',
+      payload: { phone: '13500003333', code: '123456' },
+    });
+    const memberId = login.json().data.member.id;
+    token = issueMemberToken(memberId);
+    adminToken = issueAdminToken(1);
+    staffToken = issueAdminToken(2);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('创建订单（自提，含规格与自动最优券）', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        store_id: 1,
+        type: 'pickup',
+        items: [
+          { product_id: 2, cup: 'large', temperature: 'ice', sugar: 'standard', quantity: 1 },
+          { product_id: 15, quantity: 1 },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.code).toBe(0);
+    const o = body.data;
+    // 拿铁大杯 2800+300=3100，可颂 1500 → 原价 4600
+    expect(o.originalAmount).toBe(4600);
+    expect(o.status).toBe('pending_payment');
+    expect(o.pickupCode).toMatch(/^\d{4}$/);
+    // 自动最优券：4600 未达满 100 门槛，无可用券 → 优惠 0
+    expect(o.discountAmount).toBe(0);
+    expect(o.payableAmount).toBe(4600);
+    orderId = o.id;
+  });
+
+  it('创建订单（手动选券，金额明细正确）', async () => {
+    // 先领券
+    await app.inject({
+      method: 'POST',
+      url: '/api/coupons/1/claim',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        store_id: 1,
+        type: 'dine_in',
+        items: [{ product_id: 1, cup: 'medium', temperature: 'hot', sugar: 'none', quantity: 5 }],
+        coupon_id: 1,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const o = res.json().data;
+    // 美式中杯 2200 × 5 = 11000，满 100 减 20 → 优惠 2000，实付 9000
+    expect(o.originalAmount).toBe(11000);
+    expect(o.discountAmount).toBe(2000);
+    expect(o.payableAmount).toBe(9000);
+  });
+
+  it('手动选券未达门槛返回错误', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        store_id: 1,
+        type: 'pickup',
+        items: [{ product_id: 1, cup: 'medium', temperature: 'hot', sugar: 'none', quantity: 1 }],
+        coupon_id: 1,
+      },
+    });
+    // 券 1 已在上一步使用，且金额 2200 未达满 100 门槛
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).not.toBe(0);
+  });
+
+  it('购买下架/售罄商品返回错误', async () => {
+    const { getDb } = await import('../src/db/index.js');
+    getDb().prepare("UPDATE products SET status = 'off' WHERE id = 5").run();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { store_id: 1, type: 'pickup', items: [{ product_id: 5, quantity: 1 }] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).not.toBe(0);
+    getDb().prepare("UPDATE products SET status = 'on' WHERE id = 5").run();
+
+    getDb().prepare('UPDATE products SET sold_out = 1 WHERE id = 6').run();
+    const res2 = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { store_id: 1, type: 'pickup', items: [{ product_id: 6, quantity: 1 }] },
+    });
+    expect(res2.statusCode).toBe(400);
+    getDb().prepare('UPDATE products SET sold_out = 0 WHERE id = 6').run();
+  });
+
+  it('模拟支付成功，状态变为已支付', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/orders/${orderId}/pay`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const o = res.json().data;
+    expect(o.status).toBe('paid');
+    expect(o.paidAt).toBeTruthy();
+  });
+
+  it('重复支付返回状态错误', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/orders/${orderId}/pay`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).not.toBe(0);
+  });
+
+  it('支付后不可取消', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/orders/${orderId}/cancel`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('店员可推进本门店订单状态', async () => {
+    // staff01 绑定门店 1，orderId 属于门店 1
+    const r1 = await app.inject({
+      method: 'POST',
+      url: `/api/admin/orders/${orderId}/advance`,
+      headers: { authorization: `Bearer ${staffToken}` },
+      payload: { target: 'making' },
+    });
+    expect(r1.statusCode).toBe(200);
+    expect(r1.json().data.status).toBe('making');
+  });
+
+  it('非法状态流转返回错误', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/admin/orders/${orderId}/advance`,
+      headers: { authorization: `Bearer ${staffToken}` },
+      payload: { target: 'completed' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).not.toBe(0);
+  });
+
+  it('店员不能操作他店订单', async () => {
+    // 创建一个门店 2 的订单
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { store_id: 2, type: 'pickup', items: [{ product_id: 15, quantity: 1 }] },
+    });
+    const otherOrderId = create.json().data.id;
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/admin/orders/${otherOrderId}/advance`,
+      headers: { authorization: `Bearer ${staffToken}` },
+      payload: { target: 'making' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).not.toBe(0);
+  });
+
+  it('店员订单列表仅含本门店，且手机号脱敏', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/orders',
+      headers: { authorization: `Bearer ${staffToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const list = res.json().data;
+    expect(list.length).toBeGreaterThan(0);
+    for (const o of list) {
+      expect(o.storeId).toBe(1);
+      expect(o.memberPhone).toMatch(/^\d{3}\*{4}\d{4}$/);
+    }
+  });
+
+  it('管理员可推进完整状态流至已完成', async () => {
+    for (const target of ['ready', 'completed']) {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/admin/orders/${orderId}/advance`,
+        headers: { authorization: `Bearer ${adminToken}` },
+        payload: { target },
+      });
+      expect(res.statusCode).toBe(200);
+    }
+    const detail = await app.inject({
+      method: 'GET',
+      url: `/api/orders/${orderId}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(detail.json().data.status).toBe('completed');
+  });
+
+  it('取消待支付订单成功并释放优惠券', async () => {
+    // 领券后创建订单（不支付），再取消
+    await app.inject({
+      method: 'POST',
+      url: '/api/coupons/2/claim',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        store_id: 1,
+        type: 'pickup',
+        items: [{ product_id: 1, cup: 'medium', temperature: 'hot', sugar: 'none', quantity: 1 }],
+        coupon_id: 2,
+      },
+    });
+    const oid = create.json().data.id;
+    const cancel = await app.inject({
+      method: 'POST',
+      url: `/api/orders/${oid}/cancel`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(cancel.statusCode).toBe(200);
+    expect(cancel.json().data.status).toBe('cancelled');
+  });
+});

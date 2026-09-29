@@ -2,11 +2,13 @@ import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { AppError, ErrorCode } from './lib/errors.js';
 import { initDb } from './db/index.js';
 import { registerAuth } from './plugins/auth.js';
+import { registerCouponDecorator } from './plugins/coupon.js';
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
 import storeRoutes from './routes/stores.js';
 import productRoutes from './routes/products.js';
 import couponRoutes from './routes/coupons.js';
+import orderRoutes from './routes/orders.js';
 
 export interface BuildAppOptions {
   /** 数据库文件路径，默认取 config.dbFile；测试可传 :memory: */
@@ -62,11 +64,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   // 注意：registerAuth 必须以普通函数调用（而非 app.register），
   // 否则装饰器只作用于封装子上下文，后续路由无法继承。
   await registerAuth(app);
+  await registerCouponDecorator(app);
   await app.register(healthRoutes);
   await app.register(authRoutes);
   await app.register(storeRoutes);
   await app.register(productRoutes);
   await app.register(couponRoutes);
+  await app.register(orderRoutes);
 
   return app;
 }

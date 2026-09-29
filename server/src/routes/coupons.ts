@@ -4,7 +4,6 @@ import { err, ErrorCode } from '../lib/errors.js';
 import { ok } from '../lib/reply.js';
 import {
   bestCoupon,
-  computeDiscount,
   isCouponUsable,
   type CouponTemplate,
   type MemberCoupon,
@@ -188,26 +187,4 @@ export default async function couponRoutes(app: FastifyInstance) {
       });
     },
   );
-
-  // 供订单服务复用的内部函数：按 ID 取券并计算优惠
-  app.decorate('computeCouponDiscount', (couponId: number, originalAmount: number) => {
-    const db = getDb();
-    const c = db
-      .prepare('SELECT * FROM member_coupons WHERE id = ?')
-      .get(couponId) as MemberCouponRow | undefined;
-    if (!c) throw err(ErrorCode.COUPON_NOT_FOUND, '优惠券不存在', 404);
-    const t = db
-      .prepare('SELECT * FROM coupon_templates WHERE id = ?')
-      .get(c.template_id) as TemplateRow | undefined;
-    if (!t) throw err(ErrorCode.COUPON_NOT_FOUND, '优惠券不存在', 404);
-    const template = toTemplate(t);
-    if (!isCouponUsable(c)) {
-      throw err(ErrorCode.COUPON_EXPIRED, '优惠券已过期或已使用', 400);
-    }
-    const discount = computeDiscount(template, originalAmount);
-    if (discount <= 0) {
-      throw err(ErrorCode.COUPON_NOT_USABLE, '优惠券不满足使用条件', 400);
-    }
-    return { coupon: c, template, discount };
-  });
 }
