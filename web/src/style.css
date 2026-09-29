@@ -1,0 +1,129 @@
+/*
+ * 山野咖啡品牌视觉 · Web 主题变量
+ * 与 admin / miniapp 共用同一套品牌色（主色深林绿 + 暖米 + 焦糖）。
+ */
+:root {
+  /* 品牌主色：深林绿 */
+  --brand-50: #f2f7f3;
+  --brand-100: #e0ede2;
+  --brand-200: #c2dbc8;
+  --brand-300: #97c2a3;
+  --brand-400: #6aa37b;
+  --brand-500: #48855c;
+  --brand-600: #356a47;
+  --brand-700: #2b553a;
+  --brand-800: #244530;
+  --brand-900: #1e3a29;
+  --brand-950: #0f2016;
+
+  /* 暖米背景 */
+  --cream-50: #fbf8f3;
+  --cream-100: #f5eee1;
+  --cream-200: #e9dcc3;
+
+  /* 焦糖点缀 */
+  --caramel-400: #d9a05b;
+  --caramel-500: #c9853c;
+  --caramel-600: #b06f2c;
+
+  --brand-primary: #356a47;
+  --brand-accent: #c9853c;
+  --brand-bg: #fbf8f3;
+  --brand-ink: #1e3a29;
+
+  --radius: 0.75rem;
+  --maxw: 1200px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--brand-bg);
+  color: var(--brand-ink);
+  font-family:
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, -apple-system,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.container {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* 通用按钮 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.4rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+.btn-primary {
+  background: var(--brand-primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--brand-700);
+}
+.btn-outline {
+  background: transparent;
+  color: var(--brand-primary);
+  border-color: var(--brand-300);
+}
+.btn-outline:hover {
+  background: var(--brand-50);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--brand-700);
+}
+.btn-ghost:hover {
+  background: var(--brand-50);
+}
+
+/* 通用卡片 */
+.card {
+  background: #fff;
+  border: 1px solid var(--brand-100);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(30, 58, 41, 0.06);
+}
+
+/* 区块标题 */
+.section-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--brand-900);
+  margin: 0 0 0.5rem;
+}
+.section-sub {
+  color: var(--brand-500);
+  margin: 0 0 2rem;
+}
