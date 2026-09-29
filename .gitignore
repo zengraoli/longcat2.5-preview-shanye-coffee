@@ -4,6 +4,8 @@ unpackage/
 .vite/
 coverage/
 *.db
+*.db-shm
+*.db-wal
 *.db-journal
 *.sqlite
 .env
