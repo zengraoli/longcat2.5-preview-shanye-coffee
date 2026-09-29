@@ -18,6 +18,8 @@ declare module 'fastify' {
     authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     /** 校验 token 且必须为管理员，否则 403。 */
     requireAdmin: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    /** 校验 token 且必须为管理员或店员，否则 403。 */
+    requireAdminOrStaff: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
 
@@ -57,6 +59,14 @@ export async function registerAuth(app: FastifyInstance) {
     const user = req.user;
     if (!user || user.type !== 'admin' || user.role !== 'admin') {
       throw err(ErrorCode.FORBIDDEN, '无权限：仅管理员可访问', 403);
+    }
+  });
+
+  app.decorate('requireAdminOrStaff', async (req: FastifyRequest, _reply: FastifyReply) => {
+    await app.authenticate(req, _reply);
+    const user = req.user;
+    if (!user || user.type !== 'admin') {
+      throw err(ErrorCode.FORBIDDEN, '无权限：仅管理员或店员可访问', 403);
     }
   });
 }
