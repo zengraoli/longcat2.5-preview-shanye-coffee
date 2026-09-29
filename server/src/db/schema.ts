@@ -61,6 +61,7 @@ const STATEMENTS: string[] = [
     image TEXT,
     status TEXT NOT NULL DEFAULT 'on' CHECK (status IN ('on','off')),
     sold_out INTEGER NOT NULL DEFAULT 0,
+    drink INTEGER NOT NULL DEFAULT 0,
     sort INTEGER NOT NULL DEFAULT 0
   )`,
 
@@ -143,5 +144,10 @@ const STATEMENTS: string[] = [
 export function migrate(db: Database) {
   for (const sql of STATEMENTS) {
     db.exec(sql);
+  }
+  // 兼容旧库：补 drink 列
+  const cols = db.prepare('PRAGMA table_info(products)').all() as { name: string }[];
+  if (!cols.some((c) => c.name === 'drink')) {
+    db.exec('ALTER TABLE products ADD COLUMN drink INTEGER NOT NULL DEFAULT 0');
   }
 }

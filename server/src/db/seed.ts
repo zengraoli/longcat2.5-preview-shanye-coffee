@@ -83,8 +83,8 @@ export function seed(db: Database) {
     'INSERT OR IGNORE INTO categories (id, name, sort) VALUES (@id, @name, @sort)',
   );
   const insertProduct = db.prepare(
-    `INSERT OR IGNORE INTO products (id, category_id, name, description, price, image, status, sold_out, sort)
-     VALUES (@id, @categoryId, @name, @description, @price, @image, 'on', 0, @sort)`,
+    `INSERT OR IGNORE INTO products (id, category_id, name, description, price, image, status, sold_out, drink, sort)
+     VALUES (@id, @categoryId, @name, @description, @price, @image, 'on', 0, @drink, @sort)`,
   );
   const insertSpec = db.prepare(
     `INSERT OR IGNORE INTO product_specs (product_id, cup, temperature, sugar, price_adjust)
@@ -111,6 +111,7 @@ export function seed(db: Database) {
         description: p.description,
         price: p.price,
         image: p.image,
+        drink: p.drink ? 1 : 0,
         sort: p.sort,
       });
       if (p.drink) {

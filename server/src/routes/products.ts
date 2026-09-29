@@ -12,6 +12,7 @@ interface ProductRow {
   image: string | null;
   status: 'on' | 'off';
   sold_out: number;
+  drink: number;
   sort: number;
 }
 
@@ -20,6 +21,38 @@ interface SpecRow {
   temperature: 'ice' | 'hot';
   sugar: 'none' | 'less' | 'standard';
   price_adjust: number;
+}
+
+interface CreateProductBody {
+  name?: string;
+  category_id?: number;
+  price?: number;
+  description?: string;
+  image?: string;
+  drink?: boolean;
+}
+
+interface UpdateProductBody {
+  name?: string;
+  price?: number;
+  description?: string;
+  image?: string;
+  drink?: boolean;
+}
+
+/** 生成饮品规格：杯型（中/大，大杯 +3 元）× 温度（冰/热）× 糖度（无/少/标准）。 */
+function ensureDrinkSpecs(db: ReturnType<typeof getDb>, productId: number) {
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO product_specs (product_id, cup, temperature, sugar, price_adjust)
+     VALUES (?, ?, ?, ?, ?)`,
+  );
+  for (const cup of ['medium', 'large'] as const) {
+    for (const temperature of ['ice', 'hot'] as const) {
+      for (const sugar of ['none', 'less', 'standard'] as const) {
+        insert.run(productId, cup, temperature, sugar, cup === 'large' ? 300 : 0);
+      }
+    }
+  }
 }
 
 function getProductWithSpecs(id: number) {
@@ -211,6 +244,103 @@ export default async function productRoutes(app: FastifyInstance) {
         .run(status, id);
       if (info.changes === 0) throw err(ErrorCode.PRODUCT_NOT_FOUND, '商品不存在', 404);
       ok(reply, { id, status });
+    },
+  );
+
+  // 后台新增商品（仅管理员）
+  app.post<{ Body: CreateProductBody }>(
+    '/api/admin/products',
+    {
+      preHandler: [app.requireAdmin],
+      schema: {
+        body: {
+          type: 'object',
+          required: ['name', 'category_id', 'price'],
+          properties: {
+            name: { type: 'string', minLength: 1, maxLength: 50 },
+            category_id: { type: 'integer' },
+            price: { type: 'integer', minimum: 1 },
+            description: { type: 'string', maxLength: 200 },
+            image: { type: 'string' },
+            drink: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      const { name, category_id, price, description, image, drink } = req.body ?? {};
+      if (!name || typeof name !== 'string') {
+        throw err(ErrorCode.VALIDATION, '商品名称非法');
+      }
+      if (!category_id || !Number.isInteger(category_id)) {
+        throw err(ErrorCode.VALIDATION, '分类 ID 非法');
+      }
+      const category = getDb().prepare('SELECT id FROM categories WHERE id = ?').get(category_id);
+      if (!category) throw err(ErrorCode.VALIDATION, '分类不存在');
+      if (!price || !Number.isInteger(price) || price <= 0) {
+        throw err(ErrorCode.VALIDATION, '价格非法');
+      }
+      const db = getDb();
+      const maxSort = (db.prepare('SELECT COALESCE(MAX(sort), 0) AS m FROM products').get() as { m: number }).m;
+      const info = db
+        .prepare(
+          `INSERT INTO products (category_id, name, description, price, image, status, sold_out, drink, sort)
+           VALUES (?, ?, ?, ?, ?, 'on', 0, ?, ?)`,
+        )
+        .run(category_id, name, description ?? null, price, image ?? null, drink ? 1 : 0, maxSort + 1);
+      const id = Number(info.lastInsertRowid);
+      if (drink) ensureDrinkSpecs(db, id);
+      const full = getProductWithSpecs(id);
+      ok(reply, full);
+    },
+  );
+
+  // 后台编辑商品（仅管理员）
+  app.patch<{ Params: { id: string }; Body: UpdateProductBody }>(
+    '/api/admin/products/:id',
+    {
+      preHandler: [app.requireAdmin],
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', minLength: 1, maxLength: 50 },
+            price: { type: 'integer', minimum: 1 },
+            description: { type: 'string', maxLength: 200 },
+            image: { type: 'string' },
+            drink: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        throw err(ErrorCode.VALIDATION, '商品 ID 非法');
+      }
+      const db = getDb();
+      const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id) as ProductRow | undefined;
+      if (!existing) throw err(ErrorCode.PRODUCT_NOT_FOUND, '商品不存在', 404);
+      const { name, price, description, image, drink } = req.body ?? {};
+      if (price !== undefined && (!Number.isInteger(price) || price <= 0)) {
+        throw err(ErrorCode.VALIDATION, '价格非法');
+      }
+      const drinkFlag = drink === undefined ? existing.drink : drink ? 1 : 0;
+      db.prepare(
+        `UPDATE products SET name = ?, price = ?, description = ?, image = ?, drink = ? WHERE id = ?`,
+      ).run(
+        name ?? existing.name,
+        price ?? existing.price,
+        description !== undefined ? description : existing.description,
+        image !== undefined ? image : existing.image,
+        drinkFlag,
+        id,
+      );
+      // 饮品规格随 drink 标记重新生成
+      db.prepare('DELETE FROM product_specs WHERE product_id = ?').run(id);
+      if (drinkFlag === 1) ensureDrinkSpecs(db, id);
+      const full = getProductWithSpecs(id);
+      ok(reply, full);
     },
   );
 

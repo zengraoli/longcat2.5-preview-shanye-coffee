@@ -126,4 +126,53 @@ describe('T04 门店与商品接口', () => {
     expect(body.code).not.toBe(0);
     expect(body.data).toBeNull();
   });
+
+  it('新增商品后用户端接口可见（含饮品规格）', async () => {
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/admin/products',
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: {
+        name: '测试拿铁',
+        category_id: 1,
+        price: 2600,
+        description: '测试用',
+        drink: true,
+      },
+    });
+    expect(create.statusCode).toBe(200);
+    const created = create.json().data;
+    expect(created.status).toBe('on');
+    expect(created.specs.length).toBe(12);
+
+    // 用户端列表可见
+    const list = await app.inject({ method: 'GET', url: '/api/products' });
+    const found = list.json().data.find((p: { id: number }) => p.id === created.id);
+    expect(found).toBeTruthy();
+    expect(found.name).toBe('测试拿铁');
+
+    // 用户端详情可见
+    const detail = await app.inject({ method: 'GET', url: `/api/products/${created.id}` });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().data.specs.length).toBe(12);
+  });
+
+  it('编辑商品名称与价格', async () => {
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: '/api/admin/products/1',
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { name: '美式咖啡（改）', price: 2500 },
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().data.name).toBe('美式咖啡（改）');
+    expect(patch.json().data.price).toBe(2500);
+    // 恢复
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/admin/products/1',
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { name: '美式咖啡', price: 2200 },
+    });
+  });
 });
