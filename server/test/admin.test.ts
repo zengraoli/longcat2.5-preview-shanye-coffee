@@ -193,6 +193,84 @@ describe('T14 后台管理接口', () => {
     expect(login.statusCode).toBe(200);
   });
 
+    it('停用/重置密码后旧凭证失效', async () => {
+    // 准备独立账号 staff04 及其 token
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/accounts',
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { username: 'staff04', password: 'staff123', name: '店员小赵', role: 'staff', store_id: 2 },
+    });
+    const login2 = await app.inject({
+      method: 'POST',
+      url: '/api/admin/login',
+      payload: { username: 'staff04', password: 'staff123' },
+    });
+    const staffToken2 = login2.json().data.token;
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/admin/accounts',
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const staff04 = list.json().data.find((a: { username: string }) => a.username === 'staff04');
+    // 停用
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/accounts/${staff04.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { enabled: false },
+    });
+    // 旧凭证失效
+    const me = await app.inject({
+      method: 'GET',
+      url: '/api/admin/me',
+      headers: { authorization: `Bearer ${staffToken2}` },
+    });
+    expect(me.statusCode).toBe(401);
+    // 重新启用并重置密码
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/accounts/${staff04.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { enabled: true, password: 'reset123' },
+    });
+    // 旧凭证仍失效
+    const me2 = await app.inject({
+      method: 'GET',
+      url: '/api/admin/me',
+      headers: { authorization: `Bearer ${staffToken2}` },
+    });
+    expect(me2.statusCode).toBe(401);
+  });
+
+  it('编辑账号保留绑定门店', async () => {
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/admin/accounts',
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const staff02 = list.json().data.find((a: { username: string }) => a.username === 'staff02');
+    // 只重置密码，不改门店
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/accounts/${staff02.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { password: 'another123' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.storeId).toBe(staff02.storeId);
+  });
+
+  it('不能停用自己的账号', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/admin/accounts/1',
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { enabled: false },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
   it('店员不能访问账号管理接口', async () => {
     const staffToken = issueAdminToken(2);
     const r1 = await app.inject({

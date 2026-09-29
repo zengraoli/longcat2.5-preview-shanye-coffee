@@ -20,8 +20,9 @@ declare module 'fastify' {
     requireAdmin: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     /** 校验 token 且必须为管理员或店员，否则 403。 */
     requireAdminOrStaff: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
-    /** 按 ID 取会员券并计算优惠金额；券不存在/过期/不满足条件时抛统一错误。 */
+    /** 按 ID 取会员券并计算优惠金额；券不存在/不属于该会员/过期/不满足条件时抛统一错误。 */
     computeCouponDiscount: (
+      memberId: number,
       couponId: number,
       originalAmount: number,
     ) => {

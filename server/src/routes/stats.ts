@@ -44,13 +44,19 @@ interface OrderRow {
   cancelled_at: string | null;
 }
 
-/** 数据看板统计接口（管理员或店员）。 */
+/** 数据看板统计接口（管理员或店员）。店员仅统计本门店。 */
 export default async function statsRoutes(app: FastifyInstance) {
   app.get(
     '/api/admin/stats/dashboard',
     { preHandler: [app.requireAdminOrStaff] },
-    async (_req, reply) => {
+    async (req, reply) => {
       const db = getDb();
+      const user = req.user!;
+      // 店员仅统计本门店
+      const storeFilter = user.type === 'admin' && user.role === 'staff' ? user.storeId : null;
+      const storeCond = storeFilter ? 'AND store_id = ?' : '';
+      const storeParams = storeFilter ? [storeFilter] : [];
+
       const today = todayBj();
       const range = bjDayRange(today);
 
@@ -59,9 +65,9 @@ export default async function statsRoutes(app: FastifyInstance) {
         .prepare(
           `SELECT COALESCE(SUM(payable_amount), 0) AS revenue, COUNT(*) AS orders
            FROM orders
-           WHERE created_at >= ? AND created_at < ? AND status IN ${ACTIVE_STATUSES}`,
+           WHERE created_at >= ? AND created_at < ? AND status IN ${ACTIVE_STATUSES} ${storeCond}`,
         )
-        .get(range.start, range.end) as { revenue: number; orders: number };
+        .get(range.start, range.end, ...storeParams) as { revenue: number; orders: number };
 
       // 今日新增会员
       const newMembers = db
@@ -75,9 +81,9 @@ export default async function statsRoutes(app: FastifyInstance) {
           .prepare(
             `SELECT COALESCE(SUM(payable_amount), 0) AS revenue, COUNT(*) AS orders
              FROM orders
-             WHERE created_at >= ? AND created_at < ? AND status IN ${ACTIVE_STATUSES}`,
+             WHERE created_at >= ? AND created_at < ? AND status IN ${ACTIVE_STATUSES} ${storeCond}`,
           )
-          .get(r.start, r.end) as { revenue: number; orders: number };
+          .get(r.start, r.end, ...storeParams) as { revenue: number; orders: number };
         return { date, revenue: row.revenue, orders: row.orders };
       });
 
@@ -90,17 +96,17 @@ export default async function statsRoutes(app: FastifyInstance) {
                   SUM(oi.price * oi.quantity) AS revenue
            FROM order_items oi
            JOIN orders o ON o.id = oi.order_id
-           WHERE o.status IN ${ACTIVE_STATUSES} AND o.created_at >= ?
+           WHERE o.status IN ${ACTIVE_STATUSES} AND o.created_at >= ? ${storeCond}
            GROUP BY oi.product_name
            ORDER BY quantity DESC
            LIMIT 10`,
         )
-        .all(topStart) as { name: string; quantity: number; revenue: number }[];
+        .all(topStart, ...storeParams) as { name: string; quantity: number; revenue: number }[];
 
-      // 最新订单
+      // 最新订单（camelCase）
       const recentOrders = db
-        .prepare('SELECT * FROM orders ORDER BY created_at DESC, id DESC LIMIT 10')
-        .all() as OrderRow[];
+        .prepare(`SELECT * FROM orders ${storeFilter ? 'WHERE store_id = ?' : ''} ORDER BY created_at DESC, id DESC LIMIT 10`)
+        .all(...storeParams) as OrderRow[];
 
       ok(reply, {
         todayRevenue: todayRow.revenue,
@@ -110,7 +116,23 @@ export default async function statsRoutes(app: FastifyInstance) {
         newMembers: newMembers.n,
         trend7d,
         topProducts,
-        recentOrders,
+        recentOrders: recentOrders.map((o) => ({
+          id: o.id,
+          orderNo: o.order_no,
+          storeId: o.store_id,
+          type: o.type,
+          status: o.status,
+          pickupCode: o.pickup_code,
+          originalAmount: o.original_amount,
+          discountAmount: o.discount_amount,
+          payableAmount: o.payable_amount,
+          couponId: o.coupon_id,
+          remark: o.remark,
+          createdAt: o.created_at,
+          paidAt: o.paid_at,
+          cancelledAt: o.cancelled_at,
+          items: [],
+        })),
       });
     },
   );

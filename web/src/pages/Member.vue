@@ -63,7 +63,7 @@ const claim = async (c: CouponTemplate) => {
   }
 };
 
-const claimedIds = computed(() => new Set(myCoupons.value.map((c) => c.templateId)));
+const hasClaimed = (templateId: number) => myCoupons.value.some((c) => c.templateId === templateId);
 </script>
 
 <template>
@@ -128,6 +128,7 @@ const claimedIds = computed(() => new Set(myCoupons.value.map((c) => c.templateI
         <div v-for="o in orders" :key="o.id" class="order-item card">
           <div class="order-head">
             <span class="order-no">{{ o.orderNo }}</span>
+            <span v-if="o.pickupCode" class="order-code">取餐码 {{ o.pickupCode }}</span>
             <span class="order-status" :class="statusMeta[o.status]?.cls">
               {{ statusMeta[o.status]?.text ?? o.status }}
             </span>
@@ -143,6 +144,9 @@ const claimedIds = computed(() => new Set(myCoupons.value.map((c) => c.templateI
           </div>
           <div class="order-foot">
             <span class="order-time">{{ formatBeijing(o.createdAt) }}</span>
+            <span v-if="o.discountAmount > 0" class="order-discount">
+              优惠 {{ formatYuan(o.discountAmount) }}
+            </span>
             <span class="order-amount">{{ formatYuan(o.payableAmount) }}</span>
           </div>
         </div>
@@ -160,7 +164,7 @@ const claimedIds = computed(() => new Set(myCoupons.value.map((c) => c.templateI
           >
             <div class="coupon-name">{{ c.name }}</div>
             <div class="coupon-desc">
-              {{ c.type === 'full_reduction' ? `满${formatYuan(c.threshold)}减${formatYuan(c.discountAmount ?? 0)}` : `${c.discountRate} 折` }}
+              {{ c.type === 'full_reduction' ? `满${formatYuan(c.threshold)}减${formatYuan(c.discountAmount ?? 0)}` : `${(c.discountRate ?? 0) / 10} 折` }}
             </div>
             <div class="coupon-meta">
               <span :class="c.status === 'unused' ? 'ok' : 'muted'">
@@ -179,17 +183,17 @@ const claimedIds = computed(() => new Set(myCoupons.value.map((c) => c.templateI
           <div v-for="c in available" :key="c.id" class="coupon card">
             <div class="coupon-name">{{ c.name }}</div>
             <div class="coupon-desc">
-              {{ c.type === 'full_reduction' ? `满${formatYuan(c.threshold)}减${formatYuan(c.discountAmount ?? 0)}` : `${c.discountRate} 折` }}
+              {{ c.type === 'full_reduction' ? `满${formatYuan(c.threshold)}减${formatYuan(c.discountAmount ?? 0)}` : `${(c.discountRate ?? 0) / 10} 折` }}
             </div>
             <div class="coupon-meta">
               <span class="coupon-exp">有效期 {{ c.validDays }} 天</span>
             </div>
             <button
               class="btn btn-primary coupon-claim"
-              :disabled="claimedIds.has(c.id) || claiming === c.id"
+              :disabled="hasClaimed(c.id) || claiming === c.id"
               @click="claim(c)"
             >
-              {{ claimedIds.has(c.id) ? '已领取' : claiming === c.id ? '领取中…' : '领取' }}
+              {{ hasClaimed(c.id) ? '已领取' : claiming === c.id ? '领取中…' : '领取' }}
             </button>
           </div>
         </div>
@@ -291,15 +295,22 @@ const claimedIds = computed(() => new Set(myCoupons.value.map((c) => c.templateI
   margin-bottom: 1.5rem;
 }
 .tab {
-  padding: 0.6rem 1.2rem;
+  padding: 0.6rem 1rem;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--brand-600);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
   margin-bottom: -1px;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .tab {
+    padding: 0.6rem 0.6rem;
+    font-size: 0.8rem;
+  }
 }
 .tab.active {
   color: var(--brand-primary);
@@ -441,7 +452,7 @@ const claimedIds = computed(() => new Set(myCoupons.value.map((c) => c.templateI
   font-size: 0.85rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .coupon-grid {
     grid-template-columns: 1fr;
   }

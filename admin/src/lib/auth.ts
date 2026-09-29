@@ -1,7 +1,6 @@
 import type { AdminUser } from './types';
-import { setToken } from './api';
+import { setToken, clearToken, getToken } from './api';
 
-const TOKEN_KEY = 'shanye_admin_token';
 const USER_KEY = 'shanye_admin_user';
 
 export interface Session {
@@ -11,12 +10,11 @@ export interface Session {
 
 export function saveSession(token: string, user: AdminUser) {
   setToken(token);
-  localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 export function getSession(): Session | null {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = getToken();
   const userRaw = localStorage.getItem(USER_KEY);
   if (!token || !userRaw) return null;
   try {
@@ -27,7 +25,6 @@ export function getSession(): Session | null {
 }
 
 export function clearSession() {
-  setToken(null);
-  localStorage.removeItem(TOKEN_KEY);
+  clearToken();
   localStorage.removeItem(USER_KEY);
 }

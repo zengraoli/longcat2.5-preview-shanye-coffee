@@ -2,11 +2,12 @@
 import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '../lib/api';
-import { saveSession } from '../lib/auth';
+import { useAuth } from '../lib/authStore';
 import type { Member } from '../lib/types';
 
 const route = useRoute();
 const router = useRouter();
+const { login } = useAuth();
 const phone = ref('');
 const code = ref('');
 const error = ref('');
@@ -24,7 +25,7 @@ const handleSubmit = async () => {
       phone: phone.value,
       code: code.value,
     });
-    saveSession(data.token, data.member);
+    login(data.token, data.member);
     const redirect = (route.query.redirect as string) || '/member';
     router.push(redirect);
   } catch (e) {

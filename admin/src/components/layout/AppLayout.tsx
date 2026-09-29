@@ -1,8 +1,34 @@
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Coffee, LogOut } from 'lucide-react';
+import {
+  BarChart3,
+  Coffee,
+  KeyRound,
+  LogOut,
+  Package,
+  Receipt,
+  Store,
+  Ticket,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { Button } from '../ui/button';
 import { useAuth } from '../../context/AuthContext';
-import { NAV_ITEMS, canAccess } from '../../lib/nav';
+import { NAV_ITEMS, canAccess, type NavItem } from '../../lib/nav';
+
+const iconMap: Record<string, LucideIcon> = {
+  BarChart3,
+  Package,
+  Receipt,
+  Store,
+  Users,
+  Ticket,
+  KeyRound,
+};
+
+function NavIcon({ item }: { item: NavItem }) {
+  const Icon = iconMap[item.icon] ?? Package;
+  return <Icon className="h-4 w-4" />;
+}
 
 export default function AppLayout() {
   const navigate = useNavigate();
@@ -32,7 +58,7 @@ export default function AppLayout() {
               href={m.path}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-brand-700 hover:bg-brand-50"
             >
-              <span>{m.icon}</span>
+              <NavIcon item={m} />
               {m.label}
             </a>
           ))}

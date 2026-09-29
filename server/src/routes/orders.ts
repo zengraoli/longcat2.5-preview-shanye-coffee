@@ -18,9 +18,9 @@ interface ProductRow {
 
 interface OrderItemBody {
   product_id?: number;
-  cup?: string;
   temperature?: string;
   sugar?: string;
+  cup?: string;
   quantity?: number;
 }
 
@@ -52,6 +52,7 @@ interface OrderRow {
 
 interface OrderItemRow {
   id: number;
+  order_id: number;
   product_id: number;
   product_name: string;
   cup: string | null;
@@ -61,13 +62,36 @@ interface OrderItemRow {
   quantity: number;
 }
 
+interface TemplateRow {
+  id: number;
+  name: string;
+  type: 'full_reduction' | 'discount';
+  threshold: number;
+  discount_amount: number | null;
+  discount_rate: number | null;
+  valid_days: number;
+  enabled: number;
+}
+
+function toTemplate(r: TemplateRow): CouponTemplate {
+  return {
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    threshold: r.threshold,
+    discount_amount: r.discount_amount,
+    discount_rate: r.discount_rate,
+    valid_days: r.valid_days,
+    enabled: r.enabled === 1,
+  };
+}
+
 /** 解析订单商品行（含规格校验），返回单价与规格快照。 */
 function resolveItem(item: OrderItemBody) {
-  if (!item.product_id || !Number.isInteger(item.product_id) || item.product_id <= 0) {
+  if (typeof item.product_id !== 'number' || !Number.isInteger(item.product_id) || item.product_id <= 0) {
     throw err(ErrorCode.ORDER_ITEMS_INVALID, '订单商品 ID 非法');
   }
-  const quantity = item.quantity ?? 1;
-  if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 99) {
+  if (typeof item.quantity !== 'number' || !Number.isInteger(item.quantity) || item.quantity <= 0 || item.quantity > 99) {
     throw err(ErrorCode.ORDER_ITEMS_INVALID, '商品数量非法');
   }
   const db = getDb();
@@ -86,10 +110,10 @@ function resolveItem(item: OrderItemBody) {
   let temperature: string | null = null;
   let sugar: string | null = null;
   let priceAdjust = 0;
-  const spec = db
-    .prepare('SELECT * FROM product_specs WHERE product_id = ?')
-    .get(item.product_id) as { id: number } | undefined;
-  if (spec) {
+  const hasSpecs = db
+    .prepare('SELECT id FROM product_specs WHERE product_id = ? LIMIT 1')
+    .get(item.product_id);
+  if (hasSpecs) {
     // 饮品：必须选择杯型/温度/糖度
     if (!item.cup || !item.temperature || !item.sugar) {
       throw err(ErrorCode.ORDER_ITEMS_INVALID, `商品「${product.name}」需选择杯型、温度、糖度`);
@@ -108,6 +132,11 @@ function resolveItem(item: OrderItemBody) {
     temperature = item.temperature;
     sugar = item.sugar;
     priceAdjust = specRow.price_adjust;
+  } else {
+    // 非饮品：不应传规格
+    if (item.cup || item.temperature || item.sugar) {
+      throw err(ErrorCode.ORDER_ITEMS_INVALID, `商品「${product.name}」无规格选项`);
+    }
   }
   return {
     product,
@@ -118,7 +147,7 @@ function resolveItem(item: OrderItemBody) {
       temperature,
       sugar,
       price: product.price + priceAdjust,
-      quantity,
+      quantity: item.quantity,
     },
   };
 }
@@ -127,7 +156,17 @@ function genOrderNo(): string {
   return `YC${Date.now().toString(36).toUpperCase()}${randomInt(10, 99)}`;
 }
 
-function genPickupCode(): string {
+/** 生成 4 位取餐码，确保与在制订单不重复。 */
+function genPickupCode(db: ReturnType<typeof getDb>): string {
+  for (let i = 0; i < 20; i++) {
+    const code = String(randomInt(0, 10000)).padStart(4, '0');
+    const exists = db
+      .prepare(
+        "SELECT id FROM orders WHERE pickup_code = ? AND status IN ('paid','making','ready')",
+      )
+      .get(code);
+    if (!exists) return code;
+  }
   return String(randomInt(0, 10000)).padStart(4, '0');
 }
 
@@ -158,6 +197,16 @@ function orderView(o: OrderRow, items: OrderItemRow[]) {
       quantity: it.quantity,
     })),
   };
+}
+
+/** 北京时间日期（YYYY-MM-DD）→ UTC ISO 范围起点。 */
+function bjDayStart(dateStr: string): string {
+  return new Date(`${dateStr}T00:00:00+08:00`).toISOString();
+}
+
+/** 北京时间日期（YYYY-MM-DD）→ UTC ISO 范围终点（含全天）。 */
+function bjDayEnd(dateStr: string): string {
+  return new Date(`${dateStr}T23:59:59.999+08:00`).toISOString();
 }
 
 /** 订单路由：创建、支付、取消、查询、店员状态推进。 */
@@ -200,7 +249,7 @@ export default async function orderRoutes(app: FastifyInstance) {
         throw err(ErrorCode.FORBIDDEN, '无权限', 403);
       }
       const { store_id, type, items, coupon_id, remark } = req.body ?? {};
-      if (!store_id || !Number.isInteger(store_id)) {
+      if (typeof store_id !== 'number' || !Number.isInteger(store_id)) {
         throw err(ErrorCode.VALIDATION, '门店 ID 非法');
       }
       if (type !== 'pickup' && type !== 'dine_in') {
@@ -210,18 +259,25 @@ export default async function orderRoutes(app: FastifyInstance) {
         throw err(ErrorCode.ORDER_ITEMS_INVALID, '订单商品不能为空');
       }
       const db = getDb();
-      const store = db.prepare('SELECT id FROM stores WHERE id = ?').get(store_id);
+      const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(store_id) as
+        | { id: number; status: string }
+        | undefined;
       if (!store) throw err(ErrorCode.STORE_NOT_FOUND, '门店不存在', 404);
+      if (store.status !== 'open') {
+        throw err(ErrorCode.STORE_CLOSED, '门店休息中，暂不可下单', 400);
+      }
 
       // 解析商品与规格，计算原价
       const resolved = items.map(resolveItem);
       const originalAmount = resolved.reduce((s, r) => s + r.item.price * r.item.quantity, 0);
 
-      // 优惠券：手动选择或自动推荐最优券
+      // 优惠券：coupon_id 传 0 表示不使用；不传则自动推荐最优券
       let discount = 0;
       let usedCouponId: number | null = null;
-      if (coupon_id) {
-        const { discount: d } = app.computeCouponDiscount(coupon_id, originalAmount);
+      if (coupon_id === 0) {
+        // 显式不使用优惠券
+      } else if (coupon_id) {
+        const { discount: d } = app.computeCouponDiscount(req.user.id, coupon_id, originalAmount);
         discount = d;
         usedCouponId = coupon_id;
       } else {
@@ -233,8 +289,8 @@ export default async function orderRoutes(app: FastifyInstance) {
           if (!templates.has(c.template_id)) {
             const t = db
               .prepare('SELECT * FROM coupon_templates WHERE id = ?')
-              .get(c.template_id) as CouponTemplate;
-            templates.set(c.template_id, t);
+              .get(c.template_id) as TemplateRow;
+            templates.set(c.template_id, toTemplate(t));
           }
         }
         const best = bestCoupon(coupons, templates, originalAmount);
@@ -256,7 +312,7 @@ export default async function orderRoutes(app: FastifyInstance) {
       const now = new Date().toISOString();
       for (let attempt = 0; attempt < 5; attempt++) {
         orderNo = genOrderNo();
-        pickupCode = genPickupCode();
+        pickupCode = genPickupCode(db);
         try {
           const tx = db.transaction(() => {
             const info = db
@@ -296,6 +352,12 @@ export default async function orderRoutes(app: FastifyInstance) {
                 r.item.quantity,
               );
             }
+            // 下单即核销优惠券，防止同一张券被多笔订单复用
+            if (usedCouponId) {
+              db.prepare(
+                "UPDATE member_coupons SET status = 'used', used_at = ?, order_id = ? WHERE id = ?",
+              ).run(now, orderId, usedCouponId);
+            }
           });
           tx();
           break;
@@ -314,7 +376,7 @@ export default async function orderRoutes(app: FastifyInstance) {
     },
   );
 
-  // 我的订单列表（会员）
+  // 我的订单列表（会员，含商品明细）
   app.get(
     '/api/orders',
     { preHandler: [app.authenticate] },
@@ -322,10 +384,26 @@ export default async function orderRoutes(app: FastifyInstance) {
       if (req.user?.type !== 'member') {
         throw err(ErrorCode.FORBIDDEN, '无权限', 403);
       }
-      const rows = getDb()
+      const db = getDb();
+      const rows = db
         .prepare('SELECT * FROM orders WHERE member_id = ? ORDER BY created_at DESC, id DESC')
         .all(req.user.id) as OrderRow[];
-      ok(reply, rows.map((o) => orderView(o, [])));
+      if (rows.length === 0) {
+        ok(reply, []);
+        return;
+      }
+      const ids = rows.map((r) => r.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const items = db
+        .prepare(`SELECT * FROM order_items WHERE order_id IN (${placeholders})`)
+        .all(...ids) as OrderItemRow[];
+      const byOrder = new Map<number, OrderItemRow[]>();
+      for (const it of items) {
+        const list = byOrder.get(it.order_id) ?? [];
+        list.push(it);
+        byOrder.set(it.order_id, list);
+      }
+      ok(reply, rows.map((o) => orderView(o, byOrder.get(o.id) ?? [])));
     },
   );
 
@@ -338,7 +416,7 @@ export default async function orderRoutes(app: FastifyInstance) {
         params: {
           type: 'object',
           required: ['id'],
-          properties: { id: { type: 'integer' } },
+          properties: { id: { type: 'string' } },
         },
       },
     },
@@ -384,15 +462,18 @@ export default async function orderRoutes(app: FastifyInstance) {
       if (order.status !== 'pending_payment') {
         throw err(ErrorCode.ORDER_STATE_INVALID, '订单状态不允许支付');
       }
+      // 支付时复核优惠券是否仍有效（下单后券可能已过期）
+      if (order.coupon_id) {
+        const c = db
+          .prepare('SELECT * FROM member_coupons WHERE id = ?')
+          .get(order.coupon_id) as MemberCoupon | undefined;
+        if (c && new Date(c.expires_at).getTime() < Date.now()) {
+          throw err(ErrorCode.COUPON_EXPIRED, '优惠券已过期，无法支付', 400);
+        }
+      }
       const now = new Date().toISOString();
       const tx = db.transaction(() => {
         db.prepare("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ?").run(now, id);
-        // 标记优惠券为已使用
-        if (order.coupon_id) {
-          db.prepare(
-            "UPDATE member_coupons SET status = 'used', used_at = ?, order_id = ? WHERE id = ?",
-          ).run(now, id, order.coupon_id);
-        }
         // 支付后按实付金额积分：每 1 元积 1 分
         if (order.member_id && order.payable_amount > 0) {
           const earned = pointsForAmount(order.payable_amount);
@@ -452,8 +533,17 @@ export default async function orderRoutes(app: FastifyInstance) {
     },
   );
 
-  // 后台订单列表（管理员全部；店员仅本门店）
-  app.get<{ Querystring: { store_id?: string; status?: string; start?: string; end?: string } }>(
+  // 后台订单列表（管理员全部；店员仅本门店；支持分页与北京时间日期筛选）
+  app.get<{
+    Querystring: {
+      store_id?: string;
+      status?: string;
+      start?: string;
+      end?: string;
+      page?: string;
+      page_size?: string;
+    };
+  }>(
     '/api/admin/orders',
     { preHandler: [app.requireAdminOrStaff] },
     async (req, reply) => {
@@ -466,11 +556,13 @@ export default async function orderRoutes(app: FastifyInstance) {
         conds.push('o.store_id = ?');
         params.push(user.storeId);
       }
-      if (req.query.store_id !== undefined) {
+      if (req.query.store_id !== undefined && req.query.store_id !== '') {
+        const sid = Number(req.query.store_id);
+        if (!Number.isInteger(sid)) throw err(ErrorCode.VALIDATION, '门店 ID 非法');
         conds.push('o.store_id = ?');
-        params.push(Number(req.query.store_id));
+        params.push(sid);
       }
-      if (req.query.status !== undefined) {
+      if (req.query.status !== undefined && req.query.status !== '') {
         const valid = ['pending_payment', 'paid', 'making', 'ready', 'completed', 'cancelled'];
         if (!valid.includes(req.query.status)) {
           throw err(ErrorCode.VALIDATION, '状态非法');
@@ -478,29 +570,41 @@ export default async function orderRoutes(app: FastifyInstance) {
         conds.push('o.status = ?');
         params.push(req.query.status);
       }
-      if (req.query.start !== undefined) {
+      // 日期筛选：按北京时间日期解释
+      if (req.query.start) {
         conds.push('o.created_at >= ?');
-        params.push(new Date(req.query.start).toISOString());
+        params.push(bjDayStart(req.query.start));
       }
-      if (req.query.end !== undefined) {
+      if (req.query.end) {
         conds.push('o.created_at <= ?');
-        params.push(new Date(req.query.end).toISOString());
+        params.push(bjDayEnd(req.query.end));
       }
       const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+
+      // 分页
+      const page = Math.max(1, Number(req.query.page) || 1);
+      const pageSize = Math.min(100, Math.max(1, Number(req.query.page_size) || 20));
+      const total = (
+        db.prepare(`SELECT COUNT(*) AS n FROM orders o ${where}`).get(...params) as { n: number }
+      ).n;
       const rows = db
         .prepare(
           `SELECT o.*, m.phone AS member_phone
            FROM orders o LEFT JOIN members m ON m.id = o.member_id
-           ${where} ORDER BY o.created_at DESC, o.id DESC LIMIT 200`,
+           ${where} ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?`,
         )
-        .all(...params) as (OrderRow & { member_phone: string | null })[];
-      ok(
-        reply,
-        rows.map((o) => ({
+        .all(...params, pageSize, (page - 1) * pageSize) as (OrderRow & {
+        member_phone: string | null;
+      })[];
+      ok(reply, {
+        total,
+        page,
+        pageSize,
+        list: rows.map((o) => ({
           ...orderView(o, []),
           memberPhone: maskPhone(o.member_phone),
         })),
-      );
+      });
     },
   );
 

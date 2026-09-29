@@ -80,7 +80,10 @@ export default function Dashboard() {
                 <BarChart data={stats.trend7d}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e0ede2" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} tickFormatter={(d: string) => d.slice(5)} />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <YAxis
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(v: number) => `¥${(v / 100).toFixed(0)}`}
+                  />
                   <Tooltip
                     formatter={(value) => formatYuan(Number(value))}
                     labelFormatter={(d) => String(d)}

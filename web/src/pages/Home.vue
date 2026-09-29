@@ -16,8 +16,8 @@ onMounted(async () => {
       api.get<Product[]>('/api/products'),
       api.get<Store[]>('/api/stores'),
     ]);
-    // 当季推荐：取前 4 个上架商品
-    recommended.value = products.slice(0, 4);
+    // 当季推荐：取前 4 个上架且未售罄商品
+    recommended.value = products.filter((p) => !p.soldOut).slice(0, 4);
     stores.value = storeList;
   } finally {
     loading.value = false;
@@ -99,8 +99,9 @@ const features = [
           <router-link
             v-for="p in recommended"
             :key="p.id"
-            to="/menu"
+            :to="{ path: '/menu', query: { category: p.categoryId } }"
             class="product-card card"
+            :class="{ 'is-soldout': p.soldOut }"
           >
             <div class="product-art">
               <ProductArt :image="p.image" :name="p.name" />
@@ -112,6 +113,7 @@ const features = [
                 <span class="product-price">{{ formatYuan(p.price) }}</span>
                 <span v-if="p.soldOut" class="product-soldout">售罄</span>
               </div>
+              <div v-if="p.soldOut" class="product-soldout-mask">已售罄</div>
             </div>
           </router-link>
         </div>
@@ -256,6 +258,23 @@ const features = [
 .product-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(30, 58, 41, 0.1);
+}
+.product-card.is-soldout {
+  opacity: 0.6;
+}
+.product-card.is-soldout .product-art {
+  filter: grayscale(0.8);
+}
+.product-soldout-mask {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  background: rgba(30, 58, 41, 0.75);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 600;
 }
 .product-art {
   aspect-ratio: 1;

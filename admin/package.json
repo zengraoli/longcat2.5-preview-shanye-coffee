@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc --noEmit",
+    "build": "vue-tsc -b && vite build",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.app.json",
     "preview": "vite preview",
     "test": "vitest run"
   },
@@ -31,6 +31,7 @@
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
     "vite": "^7.1.5",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "vue-tsc": "^3.3.11"
   }
 }

@@ -17,12 +17,28 @@ export class ApiError extends Error {
   }
 }
 
-let authToken: string | null = null;
+const TOKEN_KEY = 'shanye_admin_token';
+
+// 模块加载时即从 localStorage 恢复 token，确保首个请求即携带
+let authToken: string | null = localStorage.getItem(TOKEN_KEY);
+
 export function setToken(token: string | null) {
   authToken = token;
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
 }
 export function getToken() {
   return authToken;
+}
+
+export function clearToken() {
+  setToken(null);
+}
+
+/** 未登录回调（由 App 注册，用于跳转登录页）。 */
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -32,8 +48,25 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
-  const res = await fetch(path, { ...options, headers });
-  const body = (await res.json()) as ApiResult<T>;
+  let res: Response;
+  try {
+    res = await fetch(path, { ...options, headers });
+  } catch {
+    throw new ApiError(-1, '网络错误，请确认服务已启动');
+  }
+
+  if (res.status === 401) {
+    clearToken();
+    onUnauthorized?.();
+    throw new ApiError(1003, '登录已失效，请重新登录');
+  }
+
+  let body: ApiResult<T>;
+  try {
+    body = (await res.json()) as ApiResult<T>;
+  } catch {
+    throw new ApiError(-1, '服务响应异常');
+  }
   if (body.code !== 0) {
     throw new ApiError(body.code, body.message);
   }

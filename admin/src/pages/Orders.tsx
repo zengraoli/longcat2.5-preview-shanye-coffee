@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input';
 import {
   Select,
   SelectTrigger,
-  SelectValue,
+  SelectDisplay,
   SelectContent,
   SelectItem,
 } from '../components/ui/select';
@@ -48,6 +48,8 @@ export default function Orders() {
   const isStaff = user?.role === 'staff';
 
   const [orders, setOrders] = useState<Order[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [stores, setStores] = useState<Store[]>([]);
   const [storeFilter, setStoreFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -68,15 +70,20 @@ export default function Orders() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (start) params.set('start', new Date(start).toISOString());
       if (end) params.set('end', new Date(end).toISOString());
+      params.set('page', String(page));
+      params.set('page_size', '20');
       const qs = params.toString();
-      const data = await api.get<Order[]>(`/api/admin/orders${qs ? `?${qs}` : ''}`);
-      setOrders(data);
+      const data = await api.get<{ total: number; list: Order[] }>(
+        `/api/admin/orders${qs ? `?${qs}` : ''}`,
+      );
+      setOrders(data.list);
+      setTotal(data.total);
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载失败');
     } finally {
       setLoading(false);
     }
-  }, [storeFilter, statusFilter, start, end]);
+  }, [storeFilter, statusFilter, start, end, page]);
 
   useEffect(() => {
     load();
@@ -117,7 +124,14 @@ export default function Orders() {
         {!isStaff && (
           <Select value={storeFilter} onValueChange={(v) => setStoreFilter(v ?? 'all')}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="全部门店" />
+              <SelectDisplay
+                value={storeFilter}
+                placeholder="全部门店"
+                options={[
+                  { value: 'all', label: '全部门店' },
+                  ...stores.map((s) => ({ value: String(s.id), label: s.name })),
+                ]}
+              />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部门店</SelectItem>
@@ -131,7 +145,14 @@ export default function Orders() {
         )}
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? 'all')}>
           <SelectTrigger className="w-32">
-            <SelectValue placeholder="全部状态" />
+            <SelectDisplay
+              value={statusFilter}
+              placeholder="全部状态"
+              options={[
+                { value: 'all', label: '全部状态' },
+                ...Object.entries(statusMeta).map(([k, v]) => ({ value: k, label: v.text })),
+              ]}
+            />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部状态</SelectItem>
@@ -200,6 +221,24 @@ export default function Orders() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex items-center justify-between text-sm text-brand-500">
+        <span>共 {total} 条</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+            上一页
+          </Button>
+          <span>{page} / {Math.max(1, Math.ceil(total / 20))}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= Math.ceil(total / 20)}
+            onClick={() => setPage(page + 1)}
+          >
+            下一页
+          </Button>
+        </div>
       </div>
 
       <Dialog open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>

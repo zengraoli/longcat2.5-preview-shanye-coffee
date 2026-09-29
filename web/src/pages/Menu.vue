@@ -1,15 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { api } from '../lib/api';
 import { formatYuan, specText } from '../lib/utils';
 import type { Category, Product } from '../lib/types';
 import ProductArt from '../components/ProductArt.vue';
 
+const route = useRoute();
 const categories = ref<Category[]>([]);
 const products = ref<Product[]>([]);
 const activeCategory = ref<number | 'all'>('all');
 const loading = ref(true);
 const selected = ref<Product | null>(null);
+
+// 支持从首页推荐跳转时携带分类参数
+const initialCategory = Number(route.query.category);
+if (Number.isInteger(initialCategory) && initialCategory > 0) {
+  activeCategory.value = initialCategory;
+}
 
 onMounted(async () => {
   try {
@@ -32,6 +40,16 @@ const filtered = computed(() => {
 
 const selectCategory = (id: number | 'all') => {
   activeCategory.value = id;
+};
+
+const openDetail = (p: Product) => {
+  selected.value = null;
+  api
+    .get<Product>(`/api/products/${p.id}`)
+    .then((detail) => {
+      selected.value = detail;
+    })
+    .catch(() => {});
 };
 </script>
 
@@ -72,7 +90,8 @@ const selectCategory = (id: number | 'all') => {
           v-for="p in filtered"
           :key="p.id"
           class="product-card card"
-          @click="selected = p"
+          :class="{ 'is-soldout': p.soldOut }"
+          @click="openDetail(p)"
         >
           <div class="product-art">
             <ProductArt :image="p.image" :name="p.name" />
@@ -84,6 +103,7 @@ const selectCategory = (id: number | 'all') => {
               <span class="product-price">{{ formatYuan(p.price) }}</span>
               <span v-if="p.soldOut" class="product-soldout">售罄</span>
             </div>
+            <div v-if="p.soldOut" class="product-soldout-mask">已售罄</div>
           </div>
         </button>
       </div>
@@ -103,7 +123,7 @@ const selectCategory = (id: number | 'all') => {
             <p class="modal-desc">{{ selected.description }}</p>
             <div class="modal-price">{{ formatYuan(selected.price) }}</div>
 
-            <div v-if="selected.specs.length > 0" class="spec-block">
+            <div v-if="selected.specs && selected.specs.length > 0" class="spec-block">
               <div class="spec-title">可选规格</div>
               <div class="spec-grid">
                 <div v-for="(s, i) in selected.specs" :key="i" class="spec-item">
@@ -183,6 +203,23 @@ const selectCategory = (id: number | 'all') => {
 .product-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(30, 58, 41, 0.1);
+}
+.product-card.is-soldout {
+  opacity: 0.6;
+}
+.product-card.is-soldout .product-art {
+  filter: grayscale(0.8);
+}
+.product-soldout-mask {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  background: rgba(30, 58, 41, 0.75);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 600;
 }
 .product-art {
   aspect-ratio: 1;
@@ -336,7 +373,7 @@ const selectCategory = (id: number | 'all') => {
     grid-template-columns: repeat(3, 1fr);
   }
 }
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .grid {
     grid-template-columns: repeat(2, 1fr);
   }

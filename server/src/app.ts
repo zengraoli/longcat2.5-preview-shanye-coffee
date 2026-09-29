@@ -28,7 +28,10 @@ export interface BuildAppOptions {
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
     logger: options.logger ?? false,
-    ajv: { customOptions: { coerceTypes: true } },
+    // 关闭类型强制转换：客户端应发送正确的 JSON 类型，避免 true 被当成 1 等
+    ajv: { customOptions: { coerceTypes: false } },
+    // 限制请求体大小，防止过大 body
+    bodyLimit: 1024 * 1024,
   });
 
   // 全局错误处理：任何错误都转为 {"code":..,"data":null,"message":".."}
@@ -39,15 +42,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         .status(error.statusCode)
         .send({ code: error.code, data: null, message: error.message });
     }
-    // Fastify 参数校验错误
-    if (error.validation) {
-      return reply
-        .status(400)
-        .send({
-          code: ErrorCode.VALIDATION,
-          data: null,
-          message: `参数错误：${error.message}`,
-        });
+    // Fastify 参数校验 / 解析错误（400/413/415 等）
+    if (error.validation || error.statusCode) {
+      const status = error.statusCode && error.statusCode < 500 ? error.statusCode : 400;
+      request.log.debug({ err: error }, '请求错误');
+      return reply.status(status).send({
+        code: ErrorCode.VALIDATION,
+        data: null,
+        message: error.message || '请求错误',
+      });
     }
     request.log.error({ err: error }, '未处理异常');
     return reply

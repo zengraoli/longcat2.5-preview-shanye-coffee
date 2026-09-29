@@ -14,6 +14,8 @@ export interface CouponTemplate {
   /** 折扣率（如 90 表示 9 折），满减券为 null */
   discount_rate: number | null;
   valid_days: number;
+  /** 是否启用 */
+  enabled: boolean;
 }
 
 export interface MemberCoupon {
@@ -71,6 +73,7 @@ export function bestCoupon(
     if (!isCouponUsable(coupon, now)) continue;
     const template = templates.get(coupon.template_id);
     if (!template) continue;
+    if (template.enabled === false) continue;
     const discount = computeDiscount(template, originalAmount);
     if (discount <= 0) continue;
     if (

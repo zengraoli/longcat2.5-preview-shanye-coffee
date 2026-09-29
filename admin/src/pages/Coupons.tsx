@@ -9,7 +9,7 @@ import { Badge } from '../components/ui/badge';
 import {
   Select,
   SelectTrigger,
-  SelectValue,
+  SelectDisplay,
   SelectContent,
   SelectItem,
 } from '../components/ui/select';
@@ -128,8 +128,13 @@ export default function Coupons() {
   };
 
   const toggleEnabled = async (t: CouponTemplate) => {
-    await api.patch(`/api/admin/coupon-templates/${t.id}`, { enabled: !t.enabled });
-    load();
+    setError('');
+    try {
+      await api.patch(`/api/admin/coupon-templates/${t.id}`, { enabled: !t.enabled });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '操作失败');
+    }
   };
 
   return (
@@ -214,7 +219,13 @@ export default function Coupons() {
                 onValueChange={(v) => setForm({ ...form, type: v as 'full_reduction' | 'discount' })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectDisplay
+                    value={form.type}
+                    options={[
+                      { value: 'full_reduction', label: '满减券' },
+                      { value: 'discount', label: '折扣券' },
+                    ]}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="full_reduction">满减券</SelectItem>

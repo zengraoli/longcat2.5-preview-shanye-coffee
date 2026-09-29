@@ -5,11 +5,12 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { api } from '../lib/api';
-import { saveSession } from '../lib/auth';
+import { useAuth } from '../context/AuthContext';
 import type { AdminUser } from '../lib/types';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -24,7 +25,7 @@ export default function Login() {
         username,
         password,
       });
-      saveSession(data.token, data.admin);
+      login(data.token, data.admin);
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');

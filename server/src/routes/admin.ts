@@ -62,6 +62,32 @@ function templateView(t: TemplateRow) {
   };
 }
 
+/** 校验时间格式 HH:MM 且合法。 */
+function isValidTime(t: string): boolean {
+  if (!/^\d{2}:\d{2}$/.test(t)) return false;
+  const parts = t.split(':');
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
+  if (!Number.isInteger(h) || !Number.isInteger(m)) return false;
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59;
+}
+
+/** 按北京时间计算门店当前是否营业（status 为 open 时按时间判断）。 */
+function isOpenNow(status: string, openTime: string, closeTime: string): boolean {
+  if (status !== 'open') return false;
+  const now = new Date(Date.now() + 8 * 3600 * 1000);
+  const cur = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const parse = (t: string): number => {
+    const [h, m] = t.split(':');
+    return Number(h ?? 0) * 60 + Number(m ?? 0);
+  };
+  const open = parse(openTime);
+  const close = parse(closeTime);
+  if (close >= open) return cur >= open && cur < close;
+  // 跨夜营业（如 22:00-02:00）
+  return cur >= open || cur < close;
+}
+
 /** 后台管理接口：门店编辑、会员列表/详情、优惠券模板 CRUD。 */
 export default async function adminRoutes(app: FastifyInstance) {
   // 编辑门店信息与营业状态（仅管理员）
@@ -78,8 +104,16 @@ export default async function adminRoutes(app: FastifyInstance) {
       if (!store) throw err(ErrorCode.STORE_NOT_FOUND, '门店不存在', 404);
 
       const { name, address, phone, open_time, close_time, status } = req.body ?? {};
+      if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
+        throw err(ErrorCode.VALIDATION, '门店名称非法');
+      }
       if (status !== undefined && status !== 'open' && status !== 'closed') {
         throw err(ErrorCode.VALIDATION, '营业状态非法');
+      }
+      const newOpen = (open_time ?? store.open_time) as string;
+      const newClose = (close_time ?? store.close_time) as string;
+      if (!isValidTime(newOpen) || !isValidTime(newClose)) {
+        throw err(ErrorCode.VALIDATION, '营业时间非法');
       }
       db.prepare(
         `UPDATE stores SET name = ?, address = ?, phone = ?, open_time = ?, close_time = ?, status = ?
@@ -88,8 +122,8 @@ export default async function adminRoutes(app: FastifyInstance) {
         name ?? store.name,
         address ?? store.address,
         phone !== undefined ? phone : store.phone,
-        open_time ?? store.open_time,
-        close_time ?? store.close_time,
+        newOpen,
+        newClose,
         status ?? store.status,
         id,
       );
@@ -102,7 +136,7 @@ export default async function adminRoutes(app: FastifyInstance) {
         openTime: updated.open_time,
         closeTime: updated.close_time,
         status: updated.status,
-        isOpen: updated.status === 'open',
+        isOpen: isOpenNow(updated.status, updated.open_time, updated.close_time),
       });
     },
   );
@@ -167,8 +201,20 @@ export default async function adminRoutes(app: FastifyInstance) {
         points: m.points,
         level: levelForPoints(m.points).name,
         createdAt: m.created_at,
-        orders,
-        coupons,
+        orders: orders.map((o) => ({
+          id: o.id,
+          orderNo: o.order_no,
+          status: o.status,
+          payableAmount: o.payable_amount,
+          createdAt: o.created_at,
+        })),
+        coupons: coupons.map((c) => ({
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          status: c.status,
+          expiresAt: c.expires_at,
+        })),
       });
     },
   );
@@ -328,22 +374,53 @@ export default async function adminRoutes(app: FastifyInstance) {
       if (!a) throw err(ErrorCode.NOT_FOUND, '账号不存在', 404);
       const body = req.body ?? {};
       const { name, role, store_id, enabled, password } = body;
+      if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
+        throw err(ErrorCode.VALIDATION, '姓名非法');
+      }
       if (role !== undefined && role !== 'admin' && role !== 'staff') {
         throw err(ErrorCode.VALIDATION, '角色非法');
       }
       if (password !== undefined && (typeof password !== 'string' || password.length < 6)) {
         throw err(ErrorCode.VALIDATION, '密码至少 6 位');
       }
-      db.prepare(
-        `UPDATE admins SET name = ?, role = ?, store_id = ?, enabled = ?, password_hash = ? WHERE id = ?`,
-      ).run(
-        name ?? a.name,
-        role ?? a.role,
-        role === 'staff' ? store_id ?? a.store_id : null,
-        enabled === undefined ? a.enabled : enabled ? 1 : 0,
-        password ? hashPassword(password) : a.password_hash,
-        id,
-      );
+      const effectiveRole = role ?? a.role;
+      const effectiveStoreId =
+        effectiveRole === 'staff' ? (store_id !== undefined ? store_id : a.store_id) : null;
+      const effectiveEnabled = enabled === undefined ? a.enabled : enabled ? 1 : 0;
+
+      // 不能停用自己的账号
+      if (a.id === req.user!.id && effectiveEnabled === 0) {
+        throw err(ErrorCode.FORBIDDEN, '无权限：不能停用自己的账号', 403);
+      }
+      // 不能停用最后一个启用中的管理员
+      if (a.role === 'admin' && effectiveEnabled === 0) {
+        const otherAdmins = (
+          db
+            .prepare("SELECT COUNT(*) AS n FROM admins WHERE role = 'admin' AND enabled = 1 AND id != ?")
+            .get(id) as { n: number }
+        ).n;
+        if (otherAdmins === 0) {
+          throw err(ErrorCode.FORBIDDEN, '无权限：不能停用最后一个管理员', 403);
+        }
+      }
+
+      const tx = db.transaction(() => {
+        db.prepare(
+          `UPDATE admins SET name = ?, role = ?, store_id = ?, enabled = ?, password_hash = ? WHERE id = ?`,
+        ).run(
+          name ?? a.name,
+          effectiveRole,
+          effectiveStoreId,
+          effectiveEnabled,
+          password ? hashPassword(password) : a.password_hash,
+          id,
+        );
+        // 停用或重置密码时，使已有登录凭证失效
+        if (effectiveEnabled === 0 || password) {
+          db.prepare('DELETE FROM admin_tokens WHERE admin_id = ?').run(id);
+        }
+      });
+      tx();
       const row = db.prepare('SELECT * FROM admins WHERE id = ?').get(id) as AdminRow;
       ok(reply, {
         id: row.id,
@@ -371,21 +448,52 @@ export default async function adminRoutes(app: FastifyInstance) {
         .get(id) as TemplateRow | undefined;
       if (!t) throw err(ErrorCode.COUPON_NOT_FOUND, '优惠券不存在', 404);
 
-      const { name, type, threshold, discount_amount, discount_rate, valid_days, enabled } =
-        req.body ?? {};
+      const body = req.body ?? {};
+      const { name, type, threshold, discount_amount, discount_rate, valid_days, total_stock, enabled } = body;
+      if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
+        throw err(ErrorCode.VALIDATION, '名称非法');
+      }
+      const newType = type ?? t.type;
       if (type !== undefined && type !== 'full_reduction' && type !== 'discount') {
         throw err(ErrorCode.VALIDATION, '券类型非法');
       }
+      const newThreshold = threshold ?? t.threshold;
+      const newDiscountAmount = discount_amount !== undefined ? discount_amount : t.discount_amount;
+      const newDiscountRate = discount_rate !== undefined ? discount_rate : t.discount_rate;
+      const newValidDays = valid_days ?? t.valid_days;
+      const newTotalStock = total_stock ?? t.total_stock;
+      if (newType === 'full_reduction') {
+        if (!Number.isInteger(Number(newThreshold)) || Number(newThreshold) <= 0) {
+          throw err(ErrorCode.VALIDATION, '满减门槛非法');
+        }
+        if (!Number.isInteger(Number(newDiscountAmount)) || Number(newDiscountAmount) <= 0) {
+          throw err(ErrorCode.VALIDATION, '满减金额非法');
+        }
+        if (Number(newDiscountAmount) >= Number(newThreshold)) {
+          throw err(ErrorCode.VALIDATION, '满减金额不能大于等于门槛');
+        }
+      } else {
+        if (!Number.isInteger(Number(newDiscountRate)) || Number(newDiscountRate) <= 0 || Number(newDiscountRate) >= 100) {
+          throw err(ErrorCode.VALIDATION, '折扣率非法');
+        }
+      }
+      if (!Number.isInteger(Number(newValidDays)) || Number(newValidDays) <= 0) {
+        throw err(ErrorCode.VALIDATION, '有效期非法');
+      }
+      if (!Number.isInteger(Number(newTotalStock)) || Number(newTotalStock) < 0) {
+        throw err(ErrorCode.VALIDATION, '库存非法');
+      }
       db.prepare(
         `UPDATE coupon_templates SET name = ?, type = ?, threshold = ?, discount_amount = ?,
-           discount_rate = ?, valid_days = ?, enabled = ? WHERE id = ?`,
+           discount_rate = ?, valid_days = ?, total_stock = ?, enabled = ? WHERE id = ?`,
       ).run(
         name ?? t.name,
-        type ?? t.type,
-        threshold ?? t.threshold,
-        discount_amount !== undefined ? discount_amount : t.discount_amount,
-        discount_rate !== undefined ? discount_rate : t.discount_rate,
-        valid_days ?? t.valid_days,
+        newType,
+        newType === 'full_reduction' ? Number(newThreshold) : 0,
+        newType === 'full_reduction' ? Number(newDiscountAmount) : null,
+        newType === 'discount' ? Number(newDiscountRate) : null,
+        Number(newValidDays),
+        Number(newTotalStock),
         enabled === undefined ? t.enabled : enabled ? 1 : 0,
         id,
       );

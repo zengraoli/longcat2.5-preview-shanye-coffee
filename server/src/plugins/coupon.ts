@@ -13,23 +13,30 @@ import {
  * 必须以普通函数调用（而非 app.register），否则装饰器只作用于子上下文。
  */
 export async function registerCouponDecorator(app: FastifyInstance) {
-  app.decorate('computeCouponDiscount', (couponId: number, originalAmount: number) => {
-    const db = getDb();
-    const c = db
-      .prepare('SELECT * FROM member_coupons WHERE id = ?')
-      .get(couponId) as MemberCoupon | undefined;
-    if (!c) throw err(ErrorCode.COUPON_NOT_FOUND, '优惠券不存在', 404);
+  app.decorate(
+    'computeCouponDiscount',
+    (memberId: number, couponId: number, originalAmount: number) => {
+      const db = getDb();
+      const c = db
+        .prepare('SELECT * FROM member_coupons WHERE id = ?')
+        .get(couponId) as MemberCoupon | undefined;
+      if (!c) throw err(ErrorCode.COUPON_NOT_FOUND, '优惠券不存在', 404);
+      // 校验券属于当前会员
+      if (c.member_id !== memberId) {
+        throw err(ErrorCode.COUPON_NOT_OWNED, '优惠券不属于该会员', 403);
+      }
     const t = db
       .prepare('SELECT * FROM coupon_templates WHERE id = ?')
       .get(c.template_id) as CouponTemplate | undefined;
     if (!t) throw err(ErrorCode.COUPON_NOT_FOUND, '优惠券不存在', 404);
-    if (!isCouponUsable(c)) {
-      throw err(ErrorCode.COUPON_EXPIRED, '优惠券已过期或已使用', 400);
-    }
-    const discount = computeDiscount(t, originalAmount);
-    if (discount <= 0) {
-      throw err(ErrorCode.COUPON_NOT_USABLE, '优惠券不满足使用条件', 400);
-    }
-    return { coupon: c, template: t, discount };
-  });
+      if (!isCouponUsable(c)) {
+        throw err(ErrorCode.COUPON_EXPIRED, '优惠券已过期或已使用', 400);
+      }
+      const discount = computeDiscount(t, originalAmount);
+      if (discount <= 0) {
+        throw err(ErrorCode.COUPON_NOT_USABLE, '优惠券不满足使用条件', 400);
+      }
+      return { coupon: c, template: t, discount };
+    },
+  );
 }

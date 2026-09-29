@@ -234,7 +234,7 @@ describe('T06 订单接口', () => {
       headers: { authorization: `Bearer ${staffToken}` },
     });
     expect(res.statusCode).toBe(200);
-    const list = res.json().data;
+    const list = res.json().data.list;
     expect(list.length).toBeGreaterThan(0);
     for (const o of list) {
       expect(o.storeId).toBe(1);
@@ -260,13 +260,112 @@ describe('T06 订单接口', () => {
     expect(detail.json().data.status).toBe('completed');
   });
 
+  it('优惠券所有权：不能使用他人的券', async () => {
+    // 会员2 领券
+    const login2 = await app.inject({
+      method: 'POST',
+      url: '/api/member/login',
+      payload: { phone: '13500009999', code: '123456' },
+    });
+    const token2 = login2.json().data.token;
+    await app.inject({
+      method: 'POST',
+      url: '/api/coupons/1/claim',
+      headers: { authorization: `Bearer ${token2}` },
+    });
+    // 会员1 用会员2 的券下单
+    const list2 = await app.inject({
+      method: 'GET',
+      url: '/api/member/coupons',
+      headers: { authorization: `Bearer ${token2}` },
+    });
+    const coupon2 = list2.json().data[0];
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        store_id: 1,
+        type: 'pickup',
+        items: [{ product_id: 1, cup: 'medium', temperature: 'hot', sugar: 'none', quantity: 5 }],
+        coupon_id: coupon2.id,
+      },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('同一张券不能同时用于多笔订单', async () => {
+    // 会员1 领券
+    await app.inject({
+      method: 'POST',
+      url: '/api/coupons/1/claim',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const mk = () => ({
+      store_id: 1,
+      type: 'pickup',
+      items: [{ product_id: 1, cup: 'medium', temperature: 'hot', sugar: 'none', quantity: 5 }],
+    });
+    const o1 = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: mk(),
+    });
+    expect(o1.statusCode).toBe(200);
+    // 第二笔订单自动推荐不应再选中已核销的券
+    const o2 = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: mk(),
+    });
+    expect(o2.statusCode).toBe(200);
+    expect(o2.json().data.discountAmount).toBe(0);
+  });
+
+  it('休息中的门店不可下单', async () => {
+    const { getDb } = await import('../src/db/index.js');
+    getDb().prepare("UPDATE stores SET status = 'closed' WHERE id = 1").run();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { store_id: 1, type: 'pickup', items: [{ product_id: 1, quantity: 1 }] },
+    });
+    expect(res.statusCode).toBe(400);
+    getDb().prepare("UPDATE stores SET status = 'open' WHERE id = 1").run();
+  });
+
+  it('显式不使用优惠券（coupon_id=0）', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/coupons/1/claim',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/orders',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        store_id: 1,
+        type: 'pickup',
+        items: [{ product_id: 1, cup: 'medium', temperature: 'hot', sugar: 'none', quantity: 5 }],
+        coupon_id: 0,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.discountAmount).toBe(0);
+  });
+
   it('取消待支付订单成功并释放优惠券', async () => {
     // 领券后创建订单（不支付），再取消
-    await app.inject({
+    const claim = await app.inject({
       method: 'POST',
       url: '/api/coupons/2/claim',
       headers: { authorization: `Bearer ${token}` },
     });
+    const couponId = claim.json().data.id;
     const create = await app.inject({
       method: 'POST',
       url: '/api/orders',
@@ -275,7 +374,7 @@ describe('T06 订单接口', () => {
         store_id: 1,
         type: 'pickup',
         items: [{ product_id: 1, cup: 'medium', temperature: 'hot', sugar: 'none', quantity: 1 }],
-        coupon_id: 2,
+        coupon_id: couponId,
       },
     });
     const oid = create.json().data.id;

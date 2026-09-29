@@ -1,7 +1,6 @@
 import type { Member } from './types';
-import { setToken } from './api';
+import { setToken, clearToken, getToken } from './api';
 
-const TOKEN_KEY = 'shanye_web_token';
 const MEMBER_KEY = 'shanye_web_member';
 
 export interface Session {
@@ -11,12 +10,16 @@ export interface Session {
 
 export function saveSession(token: string, member: Member) {
   setToken(token);
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(MEMBER_KEY, JSON.stringify(member));
+  // 存储时对手机号脱敏，避免明文手机号长期留在本地
+  const safe: Member = {
+    ...member,
+    phone: member.phone.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2'),
+  };
+  localStorage.setItem(MEMBER_KEY, JSON.stringify(safe));
 }
 
 export function getSession(): Session | null {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = getToken();
   const raw = localStorage.getItem(MEMBER_KEY);
   if (!token || !raw) return null;
   try {
@@ -27,7 +30,6 @@ export function getSession(): Session | null {
 }
 
 export function clearSession() {
-  setToken(null);
-  localStorage.removeItem(TOKEN_KEY);
+  clearToken();
   localStorage.removeItem(MEMBER_KEY);
 }

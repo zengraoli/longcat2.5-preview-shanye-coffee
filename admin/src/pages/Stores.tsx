@@ -90,10 +90,15 @@ export default function Stores() {
   };
 
   const toggleStatus = async (s: Store) => {
-    await api.patch(`/api/admin/stores/${s.id}`, {
-      status: s.status === 'open' ? 'closed' : 'open',
-    });
-    load();
+    setError('');
+    try {
+      await api.patch(`/api/admin/stores/${s.id}`, {
+        status: s.status === 'open' ? 'closed' : 'open',
+      });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '操作失败');
+    }
   };
 
   return (

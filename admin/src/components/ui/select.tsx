@@ -3,14 +3,31 @@ import { Select } from '@base-ui/react/select';
 import { cn } from '../../lib/utils';
 
 const SelectRoot = Select.Root;
-const SelectTrigger = Select.Trigger;
-const SelectValue = Select.Value;
 const SelectIcon = Select.Icon;
+
+const SelectTrigger = React.forwardRef<HTMLButtonElement, React.ComponentProps<typeof Select.Trigger>>(
+  ({ className, ...props }, ref) => (
+    <Select.Trigger
+      ref={ref}
+      className={cn(
+        'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-brand-200 bg-white px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
+        className,
+      )}
+      {...props}
+    />
+  ),
+);
+SelectTrigger.displayName = 'SelectTrigger';
 const SelectPortal = Select.Portal;
 const SelectPositioner = Select.Positioner;
 const SelectPopup = Select.Popup;
 const SelectItem = Select.Item;
 const SelectArrow = Select.Arrow;
+
+export interface SelectOption {
+  value: string;
+  label: string;
+}
 
 function SelectContent({
   className,
@@ -22,7 +39,7 @@ function SelectContent({
       <SelectPositioner className="z-50">
         <SelectPopup
           className={cn(
-            'min-w-[8rem] overflow-hidden rounded-md border border-brand-100 bg-white p-1 text-brand-900 shadow-md',
+            'min-w-[8rem] overflow-hidden rounded-md border border-brand-200 bg-white p-1 text-brand-900 shadow-md',
             className,
           )}
           {...props}
@@ -59,10 +76,24 @@ function SelectItemView({
   );
 }
 
+/** 在触发器中显示当前值的中文标签（Select.Value 在 portal 场景下可能显示原始值）。 */
+export function SelectDisplay({
+  value,
+  options,
+  placeholder,
+}: {
+  value: string;
+  options: SelectOption[];
+  placeholder?: string;
+}) {
+  const opt = options.find((o) => o.value === value);
+  if (opt) return <span>{opt.label}</span>;
+  return <span className="text-brand-300">{placeholder ?? '请选择'}</span>;
+}
+
 export {
   SelectRoot as Select,
   SelectTrigger,
-  SelectValue,
   SelectIcon,
   SelectContent,
   SelectItemView as SelectItem,

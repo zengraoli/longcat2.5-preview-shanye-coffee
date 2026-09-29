@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/badge';
 import {
   Select,
   SelectTrigger,
-  SelectValue,
+  SelectDisplay,
   SelectContent,
   SelectItem,
 } from '../components/ui/select';
@@ -125,8 +125,13 @@ export default function Accounts() {
   };
 
   const toggleEnabled = async (a: Account) => {
-    await api.patch(`/api/admin/accounts/${a.id}`, { enabled: !a.enabled });
-    load();
+    setError('');
+    try {
+      await api.patch(`/api/admin/accounts/${a.id}`, { enabled: !a.enabled });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '操作失败');
+    }
   };
 
   return (
@@ -230,7 +235,13 @@ export default function Accounts() {
                 onValueChange={(v) => setForm({ ...form, role: v as 'admin' | 'staff' })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectDisplay
+                    value={form.role}
+                    options={[
+                      { value: 'admin', label: '管理员' },
+                      { value: 'staff', label: '店员' },
+                    ]}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">管理员</SelectItem>
@@ -246,7 +257,11 @@ export default function Accounts() {
                   onValueChange={(v) => setForm({ ...form, storeId: Number(v) })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="选择门店" />
+                    <SelectDisplay
+                      value={form.storeId === '' ? '' : String(form.storeId)}
+                      placeholder="选择门店"
+                      options={stores.map((s) => ({ value: String(s.id), label: s.name }))}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {stores.map((s) => (

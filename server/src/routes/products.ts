@@ -38,6 +38,7 @@ interface UpdateProductBody {
   description?: string;
   image?: string;
   drink?: boolean;
+  category_id?: number;
 }
 
 /** 生成饮品规格：杯型（中/大，大杯 +3 元）× 温度（冰/热）× 糖度（无/少/标准）。 */
@@ -119,7 +120,7 @@ export default async function productRoutes(app: FastifyInstance) {
       schema: {
         querystring: {
           type: 'object',
-          properties: { category_id: { type: 'integer' } },
+          properties: { category_id: { type: 'string' } },
         },
       },
     },
@@ -163,7 +164,7 @@ export default async function productRoutes(app: FastifyInstance) {
         params: {
           type: 'object',
           required: ['id'],
-          properties: { id: { type: 'integer' } },
+          properties: { id: { type: 'string' } },
         },
       },
     },
@@ -180,10 +181,10 @@ export default async function productRoutes(app: FastifyInstance) {
     ok(reply, full);
   });
 
-  // 后台商品列表：含下架商品，可按分类/状态筛选
+  // 后台商品列表：含下架商品，可按分类/状态筛选（管理员或店员）
   app.get<{ Querystring: { category_id?: string; status?: string } }>(
     '/api/admin/products',
-    { preHandler: [app.requireAdmin] },
+    { preHandler: [app.requireAdminOrStaff] },
     async (req, reply) => {
       const db = getDb();
       const { category_id, status } = req.query;
@@ -217,6 +218,21 @@ export default async function productRoutes(app: FastifyInstance) {
           soldOut: p.sold_out === 1,
         })),
       );
+    },
+  );
+
+  // 后台商品详情（含下架商品，仅管理员）
+  app.get<{ Params: { id: string } }>(
+    '/api/admin/products/:id',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        throw err(ErrorCode.VALIDATION, '商品 ID 非法');
+      }
+      const full = getProductWithSpecs(id);
+      if (!full) throw err(ErrorCode.PRODUCT_NOT_FOUND, '商品不存在', 404);
+      ok(reply, full);
     },
   );
 
@@ -269,7 +285,7 @@ export default async function productRoutes(app: FastifyInstance) {
     },
     async (req, reply) => {
       const { name, category_id, price, description, image, drink } = req.body ?? {};
-      if (!name || typeof name !== 'string') {
+      if (typeof name !== 'string' || name.trim() === '') {
         throw err(ErrorCode.VALIDATION, '商品名称非法');
       }
       if (!category_id || !Number.isInteger(category_id)) {
@@ -277,7 +293,7 @@ export default async function productRoutes(app: FastifyInstance) {
       }
       const category = getDb().prepare('SELECT id FROM categories WHERE id = ?').get(category_id);
       if (!category) throw err(ErrorCode.VALIDATION, '分类不存在');
-      if (!price || !Number.isInteger(price) || price <= 0) {
+      if (!price || !Number.isInteger(price) || price <= 0 || price > 100000000) {
         throw err(ErrorCode.VALIDATION, '价格非法');
       }
       const db = getDb();
@@ -321,19 +337,30 @@ export default async function productRoutes(app: FastifyInstance) {
       const db = getDb();
       const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id) as ProductRow | undefined;
       if (!existing) throw err(ErrorCode.PRODUCT_NOT_FOUND, '商品不存在', 404);
-      const { name, price, description, image, drink } = req.body ?? {};
-      if (price !== undefined && (!Number.isInteger(price) || price <= 0)) {
+      const { name, price, description, image, drink, category_id } = req.body ?? {};
+      if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
+        throw err(ErrorCode.VALIDATION, '商品名称非法');
+      }
+      if (price !== undefined && (!Number.isInteger(price) || price <= 0 || price > 100000000)) {
         throw err(ErrorCode.VALIDATION, '价格非法');
+      }
+      if (category_id !== undefined) {
+        if (!Number.isInteger(category_id)) {
+          throw err(ErrorCode.VALIDATION, '分类 ID 非法');
+        }
+        const cat = getDb().prepare('SELECT id FROM categories WHERE id = ?').get(category_id);
+        if (!cat) throw err(ErrorCode.VALIDATION, '分类不存在');
       }
       const drinkFlag = drink === undefined ? existing.drink : drink ? 1 : 0;
       db.prepare(
-        `UPDATE products SET name = ?, price = ?, description = ?, image = ?, drink = ? WHERE id = ?`,
+        `UPDATE products SET name = ?, price = ?, description = ?, image = ?, drink = ?, category_id = ? WHERE id = ?`,
       ).run(
         name ?? existing.name,
         price ?? existing.price,
         description !== undefined ? description : existing.description,
         image !== undefined ? image : existing.image,
         drinkFlag,
+        category_id ?? existing.category_id,
         id,
       );
       // 饮品规格随 drink 标记重新生成

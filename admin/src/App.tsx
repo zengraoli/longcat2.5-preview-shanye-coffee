@@ -1,5 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { useEffect } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import RequireAuth from './components/auth/RequireAuth';
 import RequireRole from './components/auth/RequireRole';
 import AppLayout from './components/layout/AppLayout';
@@ -12,6 +13,7 @@ import Members from './pages/Members';
 import Coupons from './pages/Coupons';
 import Accounts from './pages/Accounts';
 import { NAV_ITEMS } from './lib/nav';
+import { setUnauthorizedHandler } from './lib/api';
 
 function PageByNavKey({ itemKey }: { itemKey: string }) {
   switch (itemKey) {
@@ -34,10 +36,24 @@ function PageByNavKey({ itemKey }: { itemKey: string }) {
   }
 }
 
+function UnauthorizedRedirect() {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      logout();
+      navigate('/login');
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [navigate, logout]);
+  return null;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <UnauthorizedRedirect />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { getSession, clearSession } from '../lib/auth';
+import { useAuth } from '../lib/authStore';
 
 const router = useRouter();
 const open = ref(false);
-const session = getSession();
+const { isLoggedIn, logout: authLogout } = useAuth();
 
 const links = [
   { to: '/', label: '首页' },
@@ -14,8 +14,8 @@ const links = [
   { to: '/story', label: '品牌故事' },
 ];
 
-const logout = () => {
-  clearSession();
+const handleLogout = () => {
+  authLogout();
   open.value = false;
   router.push('/');
 };
@@ -42,7 +42,7 @@ const logout = () => {
         >
           {{ l.label }}
         </router-link>
-        <router-link v-if="session" to="/member" class="nav-link">会员中心</router-link>
+        <router-link v-if="isLoggedIn" to="/member" class="nav-link">会员中心</router-link>
         <router-link v-else to="/login" class="nav-link">登录</router-link>
       </nav>
 
@@ -69,13 +69,13 @@ const logout = () => {
         >
           {{ l.label }}
         </router-link>
-        <router-link v-if="session" to="/member" class="nav-mobile-link" @click="open = false">
+        <router-link v-if="isLoggedIn" to="/member" class="nav-mobile-link" @click="open = false">
           会员中心
         </router-link>
         <router-link v-else to="/login" class="nav-mobile-link" @click="open = false">
           登录
         </router-link>
-        <button v-if="session" class="nav-mobile-link as-link" @click="logout">退出登录</button>
+        <button v-if="isLoggedIn" class="nav-mobile-link as-link" @click="handleLogout">退出登录</button>
       </nav>
     </transition>
   </header>
@@ -190,7 +190,7 @@ const logout = () => {
   opacity: 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .nav-desktop {
     display: none;
   }

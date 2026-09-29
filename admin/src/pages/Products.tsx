@@ -9,7 +9,7 @@ import { Badge } from '../components/ui/badge';
 import {
   Select,
   SelectTrigger,
-  SelectValue,
+  SelectDisplay,
   SelectContent,
   SelectItem,
 } from '../components/ui/select';
@@ -93,7 +93,7 @@ export default function Products() {
 
   const openEdit = (p: Product) => {
     api
-      .get<ProductDetail>(`/api/products/${p.id}`)
+      .get<ProductDetail>(`/api/admin/products/${p.id}`)
       .then((detail) => {
         setEditing(detail);
         setForm({
@@ -138,15 +138,25 @@ export default function Products() {
   };
 
   const toggleStatus = async (p: Product) => {
-    await api.patch(`/api/admin/products/${p.id}/status`, {
-      status: p.status === 'on' ? 'off' : 'on',
-    });
-    load();
+    setError('');
+    try {
+      await api.patch(`/api/admin/products/${p.id}/status`, {
+        status: p.status === 'on' ? 'off' : 'on',
+      });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '操作失败');
+    }
   };
 
   const toggleSoldOut = async (p: Product) => {
-    await api.patch(`/api/admin/products/${p.id}/sold-out`, { sold_out: p.soldOut ? 0 : 1 });
-    load();
+    setError('');
+    try {
+      await api.patch(`/api/admin/products/${p.id}/sold-out`, { sold_out: p.soldOut ? 0 : 1 });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '操作失败');
+    }
   };
 
   return (
@@ -166,7 +176,14 @@ export default function Products() {
           onValueChange={(v) => setCategoryFilter(v ?? 'all')}
         >
           <SelectTrigger className="w-32">
-            <SelectValue placeholder="全部分类" />
+            <SelectDisplay
+              value={categoryFilter}
+              placeholder="全部分类"
+              options={[
+                { value: 'all', label: '全部分类' },
+                ...categories.map((c) => ({ value: String(c.id), label: c.name })),
+              ]}
+            />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部分类</SelectItem>
@@ -182,7 +199,15 @@ export default function Products() {
           onValueChange={(v) => setStatusFilter(v ?? 'all')}
         >
           <SelectTrigger className="w-32">
-            <SelectValue placeholder="全部状态" />
+            <SelectDisplay
+              value={statusFilter}
+              placeholder="全部状态"
+              options={[
+                { value: 'all', label: '全部状态' },
+                { value: 'on', label: '上架' },
+                { value: 'off', label: '下架' },
+              ]}
+            />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部状态</SelectItem>
@@ -287,7 +312,11 @@ export default function Products() {
                 onValueChange={(v) => setForm({ ...form, categoryId: Number(v) })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="选择分类" />
+                  <SelectDisplay
+                    value={form.categoryId === '' ? '' : String(form.categoryId)}
+                    placeholder="选择分类"
+                    options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (

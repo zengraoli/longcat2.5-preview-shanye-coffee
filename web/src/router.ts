@@ -5,6 +5,7 @@ import Stores from './pages/Stores.vue';
 import Story from './pages/Story.vue';
 import Member from './pages/Member.vue';
 import Login from './pages/Login.vue';
+import NotFound from './pages/NotFound.vue';
 
 const routes = [
   { path: '/', name: 'home', component: Home },
@@ -13,6 +14,7 @@ const routes = [
   { path: '/story', name: 'story', component: Story },
   { path: '/member', name: 'member', component: Member, meta: { requiresAuth: true } },
   { path: '/login', name: 'login', component: Login },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFound },
 ];
 
 export const router = createRouter({

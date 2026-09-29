@@ -17,6 +17,8 @@ interface TemplateRow {
   discount_amount: number | null;
   discount_rate: number | null;
   valid_days: number;
+  enabled: number;
+  total_stock: number;
 }
 
 interface MemberCouponRow {
@@ -37,6 +39,7 @@ function toTemplate(r: TemplateRow): CouponTemplate {
     discount_amount: r.discount_amount,
     discount_rate: r.discount_rate,
     valid_days: r.valid_days,
+    enabled: r.enabled === 1,
   };
 }
 
@@ -68,7 +71,7 @@ export default async function couponRoutes(app: FastifyInstance) {
         params: {
           type: 'object',
           required: ['templateId'],
-          properties: { templateId: { type: 'integer' } },
+          properties: { templateId: { type: 'string' } },
         },
       },
     },
@@ -83,14 +86,29 @@ export default async function couponRoutes(app: FastifyInstance) {
       const db = getDb();
       const template = db
         .prepare('SELECT * FROM coupon_templates WHERE id = ?')
-        .get(templateId) as TemplateRow | undefined;
+        .get(templateId) as (TemplateRow & { enabled: number; total_stock: number }) | undefined;
       if (!template) throw err(ErrorCode.COUPON_NOT_FOUND, '优惠券不存在', 404);
+      if (template.enabled !== 1) {
+        throw err(ErrorCode.COUPON_NOT_USABLE, '优惠券已停用', 400);
+      }
 
       const existing = db
         .prepare('SELECT id FROM member_coupons WHERE member_id = ? AND template_id = ?')
         .get(req.user.id, templateId);
       if (existing) {
         throw err(ErrorCode.COUPON_ALREADY_CLAIMED, '优惠券已领取', 409);
+      }
+
+      // 校验发放总量
+      if (template.total_stock > 0) {
+        const claimed = (
+          db
+            .prepare('SELECT COUNT(*) AS n FROM member_coupons WHERE template_id = ?')
+            .get(templateId) as { n: number }
+        ).n;
+        if (claimed >= template.total_stock) {
+          throw err(ErrorCode.COUPON_NOT_USABLE, '优惠券已领完', 400);
+        }
       }
 
       const now = new Date();
@@ -151,7 +169,7 @@ export default async function couponRoutes(app: FastifyInstance) {
         querystring: {
           type: 'object',
           required: ['amount'],
-          properties: { amount: { type: 'integer', minimum: 0 } },
+          properties: { amount: { type: 'string' } },
         },
       },
     },
