@@ -1,24 +1,19 @@
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Coffee, LogOut } from 'lucide-react';
 import { Button } from '../ui/button';
-import { clearSession } from '../../lib/auth';
-
-const menu = [
-  { key: 'dashboard', label: '数据看板', icon: '📊' },
-  { key: 'products', label: '商品管理', icon: '🛍️' },
-  { key: 'orders', label: '订单管理', icon: '🧾' },
-  { key: 'stores', label: '门店管理', icon: '🏪' },
-  { key: 'members', label: '会员管理', icon: '👥' },
-  { key: 'coupons', label: '优惠券', icon: '🎟️' },
-  { key: 'accounts', label: '账号与角色', icon: '🔑' },
-];
+import { useAuth } from '../../context/AuthContext';
+import { NAV_ITEMS, canAccess } from '../../lib/nav';
 
 export default function AppLayout() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
   const handleLogout = () => {
-    clearSession();
+    logout();
     navigate('/login');
   };
+
+  const visibleNav = NAV_ITEMS.filter((item) => canAccess(user?.role, item));
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -31,10 +26,10 @@ export default function AppLayout() {
           </div>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-2">
-          {menu.map((m) => (
+          {visibleNav.map((m) => (
             <a
               key={m.key}
-              href={`/${m.key}`}
+              href={m.path}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-brand-700 hover:bg-brand-50"
             >
               <span>{m.icon}</span>
@@ -43,6 +38,9 @@ export default function AppLayout() {
           ))}
         </nav>
         <div className="border-t border-brand-100 p-3">
+          <div className="mb-2 px-2 text-xs text-brand-400">
+            {user?.name}（{user?.role === 'admin' ? '管理员' : '店员'}）
+          </div>
           <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleLogout}>
             <LogOut /> 退出登录
           </Button>
