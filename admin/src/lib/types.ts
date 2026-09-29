@@ -106,12 +106,24 @@ export interface Order {
   memberPhone?: string | null;
 }
 
+export interface TrendPoint {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
+export interface TopProduct {
+  name: string;
+  quantity: number;
+  revenue: number;
+}
+
 export interface DashboardStats {
   todayRevenue: number;
   todayOrders: number;
   avgOrderAmount: number;
   newMembers: number;
-  trend7d: { date: string; revenue: number; orders: number }[];
-  topProducts: { name: string; quantity: number; revenue: number }[];
+  trend7d: TrendPoint[];
+  topProducts: TopProduct[];
   recentOrders: Order[];
 }
