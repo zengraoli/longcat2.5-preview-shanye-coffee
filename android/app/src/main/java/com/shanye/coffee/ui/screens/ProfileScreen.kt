@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shanye.coffee.data.Coupon
 import com.shanye.coffee.data.Member
+import com.shanye.coffee.data.AuthState
 import com.shanye.coffee.data.Repository
 import com.shanye.coffee.data.SessionStore
 import com.shanye.coffee.data.formatYuan
@@ -71,6 +72,10 @@ fun ProfileScreen(
         try {
             member = repository.me()
             coupons = repository.myCoupons()
+        } catch (e: com.shanye.coffee.data.UnauthorizedException) {
+            AuthState.onUnauthorized()
+        } catch (e: Exception) {
+            // 忽略其他错误
         } finally {
             loading = false
         }
@@ -178,7 +183,8 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .clickable {
                         scope.launch {
-                            sessionStore.clear()
+                            repository.logout()
+                        AuthState.setLoggedIn(false)
                             onLoggedOut()
                         }
                     }

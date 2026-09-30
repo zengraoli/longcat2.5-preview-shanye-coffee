@@ -41,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shanye.coffee.data.Coupon
+import com.shanye.coffee.data.CartHolder
+import com.shanye.coffee.data.AuthState
 import com.shanye.coffee.data.Repository
 import com.shanye.coffee.data.couponDiscount
 import com.shanye.coffee.data.formatYuan
@@ -69,7 +71,8 @@ fun CheckoutScreen(
 
     // 从点单页传入的购物车（通过 savedStateHandle 或共享状态，这里简化用 repository 重新获取）
     // 实际应由导航参数传入，这里用 OrderScreen 的购物车状态
-    var cartItems by remember { mutableStateOf<List<CartItem>>(emptyList()) }
+    // 购物车状态由 CartHolder 共享（点单页写入，确认页读取）
+    val cartItems = CartHolder.getItems()
 
     LaunchedEffect(Unit) {
         try {
@@ -244,9 +247,12 @@ fun CheckoutScreen(
                                 ),
                             )
                             val paid = repository.pay(order.id)
+                            CartHolder.clear()
                             submitting = false
                             onPaid(paid.id)
-                        } catch (e: Exception) {
+                        } catch (e: com.shanye.coffee.data.UnauthorizedException) {
+                        AuthState.onUnauthorized()
+                    } catch (e: Exception) {
                             submitting = false
                             error = e.message ?: "下单失败"
                         }

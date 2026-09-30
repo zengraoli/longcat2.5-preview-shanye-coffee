@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shanye.coffee.data.Product
+import com.shanye.coffee.data.AuthState
 import com.shanye.coffee.data.Repository
 import com.shanye.coffee.data.Store
 import com.shanye.coffee.data.formatYuan
@@ -71,6 +72,10 @@ fun HomeScreen(
             stores = storeList
             selectedStoreId = storeList.firstOrNull { it.isOpen }?.id ?: storeList.firstOrNull()?.id ?: 0
             products = repository.products()
+        } catch (e: com.shanye.coffee.data.UnauthorizedException) {
+            AuthState.onUnauthorized()
+        } catch (e: Exception) {
+            // 忽略其他错误
         } finally {
             loading = false
         }

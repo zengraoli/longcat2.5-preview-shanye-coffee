@@ -32,10 +32,11 @@ onMounted(() => {
   else loading.value = false;
 });
 
-// 从订单详情返回时刷新列表
+// 从订单详情返回或从其他页面返回时刷新列表
 onShow(() => {
   isLoggedIn.value = !!getSession();
   if (isLoggedIn.value) loadOrders();
+  else orders.value = [];
 });
 
 // 下拉刷新：后台推进状态后，小程序刷新可见最新状态

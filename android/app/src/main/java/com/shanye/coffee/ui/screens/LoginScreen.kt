@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shanye.coffee.data.AuthState
 import com.shanye.coffee.data.Repository
 import com.shanye.coffee.data.SessionStore
 import com.shanye.coffee.ui.theme.Brand600
@@ -151,13 +152,23 @@ fun LoginScreen(
                 loading = true
                 scope.launch {
                     try {
-                        val res = repository.login(phone, code)
-                        sessionStore.save(res.token, res.member)
+                        // Repository.login 内部已保存 token 到 TokenHolder 与 DataStore
+                        AuthState.setLoggedIn(true)
+                        repository.login(phone, code)
                         loading = false
                         onLoggedIn()
                     } catch (e: Exception) {
                         loading = false
-                        error = e.message ?: "登录失败"
+                        // 显示 server 返回的中文原因
+                        error = when (e) {
+                            is com.shanye.coffee.data.UnauthorizedException -> "登录已过期，请重新登录"
+                            is com.shanye.coffee.data.ApiException -> e.message ?: "登录失败"
+                            else -> when {
+                                e.message?.contains("Failed to connect") == true -> "无法连接服务，请确认 server 已启动"
+                                e.message?.contains("HTTP") == true -> "服务响应异常，请稍后重试"
+                                else -> e.message ?: "登录失败"
+                            }
+                        }
                     }
                 }
             },

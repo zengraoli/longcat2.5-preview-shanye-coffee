@@ -1,7 +1,5 @@
 package com.shanye.coffee.data
 
-import kotlinx.serialization.json.Json
-
 /** 仓库：解包统一响应，处理未登录（1003/2004）与错误。 */
 open class Repository(protected val sessionStore: SessionStore) {
 
@@ -11,17 +9,23 @@ open class Repository(protected val sessionStore: SessionStore) {
     }
 
     /** 解包 ApiResult，未登录时清除会话并抛 UnauthorizedException。 */
-    private suspend fun <T> unwrap(result: ApiResult<T>): T {
+    protected suspend fun <T> unwrap(result: ApiResult<T>): T {
         if (result.code == 0) return result.data
         if (result.code == CODE_UNAUTHORIZED || result.code == CODE_UNAUTHORIZED_ALT) {
             sessionStore.clear()
+            TokenHolder.clear()
             throw UnauthorizedException(result.message)
         }
         throw ApiException(result.code, result.message)
     }
 
-    open suspend fun login(phone: String, code: String): LoginResponse =
-        unwrap(Network.api.login(mapOf("phone" to phone, "code" to code)))
+    open suspend fun login(phone: String, code: String): LoginResponse {
+        val res = unwrap(Network.api.login(mapOf("phone" to phone, "code" to code)))
+        // 同步写入 TokenHolder，供拦截器读取
+        TokenHolder.set(res.token)
+        sessionStore.save(res.token, res.member)
+        return res
+    }
 
     open suspend fun me(): Member = unwrap(Network.api.me())
 
@@ -47,6 +51,11 @@ open class Repository(protected val sessionStore: SessionStore) {
     open suspend fun pay(id: Int): Order = unwrap(Network.api.pay(id))
 
     open suspend fun cancel(id: Int): Order = unwrap(Network.api.cancel(id))
+
+    open suspend fun logout() {
+        sessionStore.clear()
+        TokenHolder.clear()
+    }
 }
 
 class ApiException(val code: Int, message: String) : Exception(message)

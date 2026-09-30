@@ -448,7 +448,7 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
 /* 右侧商品 */
 .product-list {
   flex: 1;
-  padding: 16rpx 20rpx 180rpx;
+  padding: 16rpx 20rpx 240rpx;
 }
 .section-title {
   font-size: 26rpx;
@@ -533,7 +533,8 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
   position: fixed;
   left: 24rpx;
   right: 24rpx;
-  bottom: 24rpx;
+  /* 位于 tabBar 上方，不遮挡底部导航 */
+  bottom: 130rpx;
   height: 96rpx;
   background: $brand-900;
   border-radius: 999rpx;

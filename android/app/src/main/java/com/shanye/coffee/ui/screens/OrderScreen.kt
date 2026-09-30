@@ -4,13 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,7 +31,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -49,9 +48,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shanye.coffee.data.AuthState
+import com.shanye.coffee.data.CartHolder
+import com.shanye.coffee.data.CartItem
 import com.shanye.coffee.data.Category
 import com.shanye.coffee.data.Product
-import com.shanye.coffee.data.ProductSpec
 import com.shanye.coffee.data.Repository
 import com.shanye.coffee.data.formatYuan
 import com.shanye.coffee.data.specText
@@ -65,17 +66,6 @@ import com.shanye.coffee.ui.theme.Cream100
 import com.shanye.coffee.ui.theme.Cream50
 import kotlinx.coroutines.launch
 
-data class CartItem(
-    val productId: Int,
-    val name: String,
-    val image: String?,
-    val cup: String?,
-    val temperature: String?,
-    val sugar: String?,
-    val price: Int,
-    val quantity: Int,
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderScreen(
@@ -86,7 +76,6 @@ fun OrderScreen(
     var products by remember { mutableStateOf<List<Product>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var selectedCategoryId by remember { mutableStateOf(0) }
-    var cart by remember { mutableStateOf<List<CartItem>>(emptyList()) }
     var specProduct by remember { mutableStateOf<Product?>(null) }
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState()
@@ -96,6 +85,9 @@ fun OrderScreen(
             categories = repository.categories()
             products = repository.products()
             selectedCategoryId = categories.firstOrNull()?.id ?: 0
+        } catch (e: com.shanye.coffee.data.UnauthorizedException) {
+            AuthState.onUnauthorized()
+        } catch (_: Exception) {
         } finally {
             loading = false
         }
@@ -104,8 +96,9 @@ fun OrderScreen(
     val filteredProducts = if (selectedCategoryId == 0) products
         else products.filter { it.categoryId == selectedCategoryId }
 
-    val cartTotal = cart.sumOf { it.price * it.quantity }
-    val cartCount = cart.sumOf { it.quantity }
+    val cartItems = CartHolder.getItems()
+    val cartTotal = cartItems.sumOf { it.price * it.quantity }
+    val cartCount = cartItems.sumOf { it.quantity }
 
     Box(modifier = Modifier.fillMaxSize().background(Cream50)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -170,7 +163,7 @@ fun OrderScreen(
                                 if (p.specs.isNotEmpty()) {
                                     specProduct = p
                                 } else {
-                                    cart = addToCart(cart, p, null, null, null)
+                                    CartHolder.addItem(CartItem(p.id, p.name, p.image, null, null, null, p.price, 1))
                                 }
                             },
                         )
@@ -202,7 +195,7 @@ fun OrderScreen(
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(formatYuan(cartTotal), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Cream50)
-                    Text("已享第二杯半价 -${formatYuan(0)}", fontSize = 11.sp, color = Cream100)
+                    Text("已享第二杯半价", fontSize = 11.sp, color = Cream100)
                 }
                 Button(
                     onClick = onGoToCheckout,
@@ -224,7 +217,10 @@ fun OrderScreen(
             SpecSheet(
                 product = p,
                 onConfirm = { cup, temperature, sugar, qty ->
-                    cart = addToCart(cart, p, cup, temperature, sugar, qty)
+                    val price = p.price + (p.specs.find {
+                        it.cup == cup && it.temperature == temperature && it.sugar == sugar
+                    }?.priceAdjust ?: 0)
+                    CartHolder.addItem(CartItem(p.id, p.name, p.image, cup, temperature, sugar, price, qty))
                     specProduct = null
                 },
             )
@@ -233,24 +229,16 @@ fun OrderScreen(
 }
 
 private fun addToCart(
-    cart: List<CartItem>,
     product: Product,
     cup: String?,
     temperature: String?,
     sugar: String?,
     quantity: Int = 1,
-): List<CartItem> {
+) {
     val price = product.price + (product.specs.find {
         it.cup == cup && it.temperature == temperature && it.sugar == sugar
     }?.priceAdjust ?: 0)
-    val existing = cart.find {
-        it.productId == product.id && it.cup == cup && it.temperature == temperature && it.sugar == sugar
-    }
-    return if (existing != null) {
-        cart.map { if (it == existing) it.copy(quantity = it.quantity + quantity) else it }
-    } else {
-        cart + CartItem(product.id, product.name, product.image, cup, temperature, sugar, price, quantity)
-    }
+    CartHolder.addItem(CartItem(product.id, product.name, product.image, cup, temperature, sugar, price, quantity))
 }
 
 @Composable

@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shanye.coffee.data.Order
+import com.shanye.coffee.data.AuthState
 import com.shanye.coffee.data.Repository
 import com.shanye.coffee.data.formatBeijing
 import com.shanye.coffee.data.formatYuan
@@ -62,6 +63,10 @@ fun OrderDetailScreen(
     LaunchedEffect(orderId) {
         try {
             order = repository.order(orderId)
+        } catch (e: com.shanye.coffee.data.UnauthorizedException) {
+            AuthState.onUnauthorized()
+        } catch (e: Exception) {
+            // 忽略其他错误
         } finally {
             loading = false
         }

@@ -17,6 +17,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.shanye.coffee.data.AuthState
 import com.shanye.coffee.data.Repository
 import com.shanye.coffee.data.SessionStore
 import com.shanye.coffee.navigation.Routes
@@ -103,11 +105,9 @@ private fun MainScreen(
     val currentRoute = navBackStackEntry?.destination?.route
 
     // 未登录时跳转登录页
-    var isLoggedIn by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) {
-        isLoggedIn = sessionStore.isLoggedIn()
-    }
-    LaunchedEffect(currentRoute) {
+    // 观察全局认证状态：登录/过期时自动跳转
+    val isLoggedIn by AuthState.isLoggedIn.collectAsState()
+    LaunchedEffect(isLoggedIn) {
         if (!isLoggedIn && currentRoute != Routes.LOGIN) {
             navController.navigate(Routes.LOGIN) {
                 popUpTo(0) { inclusive = true }

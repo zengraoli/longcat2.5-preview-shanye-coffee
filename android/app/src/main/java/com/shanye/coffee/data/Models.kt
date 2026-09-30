@@ -120,16 +120,16 @@ data class Coupon(
 
 @Serializable
 data class CreateOrderRequest(
-    val storeId: Int,
+    @SerialName("store_id") val storeId: Int,
     val type: String,
     val items: List<OrderItemRequest>,
-    val couponId: Int? = null,
+    @SerialName("coupon_id") val couponId: Int? = null,
     val remark: String? = null,
 )
 
 @Serializable
 data class OrderItemRequest(
-    val productId: Int,
+    @SerialName("product_id") val productId: Int,
     val cup: String? = null,
     val temperature: String? = null,
     val sugar: String? = null,
