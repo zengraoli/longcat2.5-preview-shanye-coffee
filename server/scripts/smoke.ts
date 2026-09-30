@@ -47,7 +47,7 @@ check('会员登录', login.body.code === 0 && !!login.body.data.token, login.bo
 const token = login.body.data.token as string;
 
 // 2. 下单（拿铁大杯 ×2：2800+300=3100 ×2 = 6200）
-// 第二杯半价：第 2 杯半价 → 活动优惠 1550，实付 4650
+// 种子活动默认停用 → 无活动优惠，实付 6200
 const create = await post(
   '/api/orders',
   {
@@ -62,9 +62,9 @@ const order = create.body.data;
 check(
   '订单金额明细',
   order.originalAmount === 6200 &&
-    order.promoDiscountAmount === 1550 &&
+    order.promoDiscountAmount === 0 &&
     order.discountAmount === 0 &&
-    order.payableAmount === 4650,
+    order.payableAmount === 6200,
   order,
 );
 check('取餐码为 4 位', /^\d{4}$/.test(order.pickupCode ?? ''), order.pickupCode);
@@ -82,9 +82,9 @@ for (const target of ['making', 'ready', 'completed'] as const) {
   check(`状态推进→${target}`, r.body.code === 0 && r.body.data.status === target, r.body);
 }
 
-// 5. 积分到账（实付 4650 分 = 46 元 → 46 分）
+// 5. 积分到账（实付 6200 分 = 62 元 → 62 分）
 const me = await get('/api/member/me', token);
-check('积分到账', me.body.code === 0 && me.body.data.points === 46, me.body);
+check('积分到账', me.body.code === 0 && me.body.data.points === 62, me.body);
 
 await app.close();
 if (failed > 0) {

@@ -6,22 +6,23 @@
 
 /** 计算活动优惠金额（分）。applicableProductIds 为适用商品集合。 */
 export function computePromoDiscount(
-  items: { productId: number; price: number; quantity: number; specKey?: string }[],
+  items: { productId: number; price: number; quantity: number }[],
   applicableProductIds: Set<number>,
 ): number {
   let discount = 0;
-  const bySpec = new Map<string, { price: number; quantity: number }>();
+  const byProduct = new Map<number, number[]>();
   for (const it of items) {
     if (!applicableProductIds.has(it.productId)) continue;
-    const key = `${it.productId}:${it.specKey ?? ''}`;
-    const group = bySpec.get(key) ?? { price: it.price, quantity: 0 };
-    group.quantity += it.quantity;
-    bySpec.set(key, group);
+    const prices = byProduct.get(it.productId) ?? [];
+    for (let i = 0; i < it.quantity; i++) prices.push(it.price);
+    byProduct.set(it.productId, prices);
   }
-  for (const { price, quantity } of bySpec.values()) {
-    if (quantity < 2) continue;
-    const halfCount = Math.floor(quantity / 2);
-    discount += halfCount * Math.floor(price / 2);
+  for (const prices of byProduct.values()) {
+    if (prices.length < 2) continue;
+    prices.sort((a, b) => a - b);
+    for (let i = 1; i < prices.length; i += 2) {
+      discount += Math.floor(prices[i] / 2);
+    }
   }
   return discount;
 }

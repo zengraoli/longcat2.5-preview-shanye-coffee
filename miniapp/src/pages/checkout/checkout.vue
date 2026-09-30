@@ -35,7 +35,6 @@ const promoDiscount = computed(() =>
       productId: i.productId,
       price: i.price,
       quantity: i.quantity,
-      specKey: `${i.cup ?? ''}/${i.temperature ?? ''}/${i.sugar ?? ''}`,
     })),
     promoProductIds.value,
   ),

@@ -160,10 +160,10 @@ function genOrderNo(): string {
 }
 
 /** 生成 4 位取餐码，确保与在制订单不重复。 */
-/** 生成 6 位取餐码，确保与在制订单不重复（4 位空间在大量订单下会碰撞）。 */
+/** 生成 4 位取餐码，确保与在制订单不重复。 */
 function genPickupCode(db: ReturnType<typeof getDb>): string {
   for (let i = 0; i < 50; i++) {
-    const code = String(randomInt(0, 1000000)).padStart(6, '0');
+    const code = String(randomInt(0, 10000)).padStart(4, '0');
     const exists = db
       .prepare(
         "SELECT id FROM orders WHERE pickup_code = ? AND status IN ('paid','making','ready')",
@@ -172,7 +172,7 @@ function genPickupCode(db: ReturnType<typeof getDb>): string {
     if (!exists) return code;
   }
   // 极端情况下回退到时间戳后缀，保证唯一
-  return `${Date.now().toString(36).toUpperCase()}${randomInt(10, 99)}`.slice(-6);
+  return `${Date.now().toString(36).toUpperCase()}${randomInt(10, 99)}`.slice(-4);
 }
 
 /** 加载当前生效的所有第二杯半价活动适用商品集合；无活动返回 null。 */
@@ -318,7 +318,6 @@ export default async function orderRoutes(app: FastifyInstance) {
               productId: r.item.product_id,
               price: r.item.price,
               quantity: r.item.quantity,
-              specKey: `${r.item.cup ?? ''}/${r.item.temperature ?? ''}/${r.item.sugar ?? ''}`,
             })),
             promoProductIds,
           )

@@ -83,7 +83,7 @@ describe('T06 订单接口', () => {
     // 拿铁大杯 2800+300=3100，可颂 1500 → 原价 4600
     expect(o.originalAmount).toBe(4600);
     expect(o.status).toBe('pending_payment');
-    expect(o.pickupCode).toMatch(/^\d{6}$/);
+    expect(o.pickupCode).toMatch(/^\d{4}$/);
     // 自动最优券：4600 未达满 100 门槛，无可用券 → 优惠 0
     expect(o.discountAmount).toBe(0);
     expect(o.payableAmount).toBe(4600);

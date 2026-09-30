@@ -56,10 +56,13 @@ function toLocalInput(iso: string): string {
   return `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())}T${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}`;
 }
 
-/** datetime-local 输入框（北京时间）→ UTC ISO8601 */
-function fromLocalInput(value: string): string {
+/** datetime-local 输入框（北京时间）→ UTC ISO8601；非法值返回 null */
+function fromLocalInput(value: string): string | null {
+  if (!value) return null;
   // 输入框为北京时间，按 UTC+8 解释后转 UTC
-  return new Date(`${value}:00+08:00`).toISOString();
+  const d = new Date(`${value}:00+08:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
 }
 
 export default function Promotions() {
@@ -141,10 +144,16 @@ export default function Promotions() {
       const endLocal = form.endAt.includes(':') && form.endAt.split(':').length === 2
         ? `${form.endAt}:59`
         : form.endAt;
+      const startAt = fromLocalInput(form.startAt);
+      const endAt = fromLocalInput(endLocal);
+      if (!startAt || !endAt) {
+        setError('请选择有效的开始与结束时间');
+        return;
+      }
       const payload = {
         name: form.name.trim(),
-        start_at: fromLocalInput(form.startAt),
-        end_at: fromLocalInput(endLocal),
+        start_at: startAt,
+        end_at: endAt,
         product_ids: form.productIds,
       };
       if (editing) {
