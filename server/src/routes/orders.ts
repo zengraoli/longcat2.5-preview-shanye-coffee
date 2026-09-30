@@ -547,7 +547,10 @@ export default async function orderRoutes(app: FastifyInstance) {
       });
       tx();
       const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id) as OrderRow;
-      ok(reply, orderView(updated, []));
+      const updatedItems = db
+        .prepare('SELECT * FROM order_items WHERE order_id = ?')
+        .all(id) as OrderItemRow[];
+      ok(reply, orderView(updated, updatedItems));
     },
   );
 
@@ -584,7 +587,10 @@ export default async function orderRoutes(app: FastifyInstance) {
       });
       tx();
       const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id) as OrderRow;
-      ok(reply, orderView(updated, []));
+      const updatedItems = db
+        .prepare('SELECT * FROM order_items WHERE order_id = ?')
+        .all(id) as OrderItemRow[];
+      ok(reply, orderView(updated, updatedItems));
     },
   );
 
@@ -725,7 +731,10 @@ export default async function orderRoutes(app: FastifyInstance) {
       }
       db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(target, id);
       const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id) as OrderRow;
-      ok(reply, orderView(updated, []));
+      const updatedItems = db
+        .prepare('SELECT * FROM order_items WHERE order_id = ?')
+        .all(id) as OrderItemRow[];
+      ok(reply, orderView(updated, updatedItems));
     },
   );
 }

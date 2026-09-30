@@ -50,14 +50,17 @@ export function useCart() {
     const target = state.items.find((i) => sameItem(i, item));
     if (!target) return;
     if (quantity <= 0) {
-      state.items = state.items.filter((i) => i !== target);
+      // 原地删除，保持数组引用（组件持有同一引用才能响应更新）
+      const idx = state.items.indexOf(target);
+      if (idx >= 0) state.items.splice(idx, 1);
     } else {
       target.quantity = quantity;
     }
   }
 
   function clear() {
-    state.items = [];
+    // 原地清空，保持数组引用
+    state.items.length = 0;
   }
 
   return {

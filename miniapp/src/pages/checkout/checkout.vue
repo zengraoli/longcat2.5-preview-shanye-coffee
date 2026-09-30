@@ -185,7 +185,8 @@ async function submitOrder() {
 }
 
 function goProfile() {
-  uni.navigateTo({ url: '/pages/profile/profile' });
+  // 我的页是 tabBar 页，必须用 switchTab
+  uni.switchTab({ url: '/pages/profile/profile' });
 }
 
 const sessionPhone = computed(() => {
@@ -336,7 +337,7 @@ const sessionPhone = computed(() => {
               <view class="coupon-option-info">
                 <text class="coupon-option-name">{{ c.name }}</text>
                 <text class="coupon-option-desc">
-                  {{ c.type === 'full_reduction' ? `满${formatYuan(c.threshold)}减${formatYuan(c.discountAmount ?? 0)}` : `${c.discountRate}折` }}
+                  {{ c.type === 'full_reduction' ? `满${formatYuan(c.threshold)}减${formatYuan(c.discountAmount ?? 0)}` : `${(c.discountRate ?? 100) / 10}折` }}
                 </text>
               </view>
               <text class="coupon-option-discount">-{{ formatYuan(couponDiscount(c, afterPromoAmount)) }}</text>

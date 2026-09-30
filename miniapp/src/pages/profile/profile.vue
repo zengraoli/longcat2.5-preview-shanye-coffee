@@ -69,9 +69,12 @@ async function loadMember() {
   loadingMember.value = true;
   try {
     member.value = await api.get<Member>('/api/member/me');
+    isLoggedIn.value = true;
   } catch {
+    // 登录过期：清除会话与旧会员卡
     clearSession();
     member.value = null;
+    isLoggedIn.value = false;
   } finally {
     loadingMember.value = false;
   }
@@ -202,7 +205,7 @@ function goOrders() {
         >
           <view class="coupon-left">
             <text class="coupon-amount">
-              {{ c.type === 'full_reduction' ? `减${((c.discountAmount ?? 0) / 100).toFixed(0)}` : `${c.discountRate}折` }}
+              {{ c.type === 'full_reduction' ? `减${((c.discountAmount ?? 0) / 100).toFixed(0)}` : `${(c.discountRate ?? 100) / 10}折` }}
             </text>
           </view>
           <view class="coupon-info">
@@ -221,7 +224,7 @@ function goOrders() {
         >
           <view class="coupon-left">
             <text class="coupon-amount">
-              {{ c.type === 'full_reduction' ? `减${((c.discountAmount ?? 0) / 100).toFixed(0)}` : `${c.discountRate}折` }}
+              {{ c.type === 'full_reduction' ? `减${((c.discountAmount ?? 0) / 100).toFixed(0)}` : `${(c.discountRate ?? 100) / 10}折` }}
             </text>
           </view>
           <view class="coupon-info">

@@ -2,12 +2,14 @@
 import { onMounted, ref } from 'vue';
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 import { api } from '../../lib/api';
+import { getSession } from '../../lib/auth';
 import { formatBeijing, formatYuan } from '../../lib/utils';
 import { STATUS_TEXT } from '../../lib/orderStatus';
 import type { Order } from '../../lib/types';
 
 const orders = ref<Order[]>([]);
 const loading = ref(true);
+const isLoggedIn = ref<boolean>(!!getSession());
 
 function loadOrders() {
   loading.value = true;
@@ -24,11 +26,16 @@ function loadOrders() {
     });
 }
 
-onMounted(loadOrders);
+onMounted(() => {
+  isLoggedIn.value = !!getSession();
+  if (isLoggedIn.value) loadOrders();
+  else loading.value = false;
+});
 
 // 从订单详情返回时刷新列表
 onShow(() => {
-  loadOrders();
+  isLoggedIn.value = !!getSession();
+  if (isLoggedIn.value) loadOrders();
 });
 
 // 下拉刷新：后台推进状态后，小程序刷新可见最新状态
@@ -46,6 +53,10 @@ function goOrder() {
   uni.switchTab({ url: '/pages/order/order' });
 }
 
+function goProfile() {
+  uni.switchTab({ url: '/pages/profile/profile' });
+}
+
 /** 状态标签样式：取消为红，完成为绿，其余为焦糖 */
 function statusClass(status: string): string {
   if (status === 'cancelled') return 'cancelled';
@@ -56,7 +67,11 @@ function statusClass(status: string): string {
 
 <template>
   <view class="page">
-    <view v-if="loading" class="tip">
+    <view v-if="!isLoggedIn" class="tip">
+      <text class="tip-text">登录后查看我的订单</text>
+      <text class="tip-action" @tap="goProfile">去登录</text>
+    </view>
+    <view v-else-if="loading" class="tip">
       <text class="tip-text">加载中…</text>
     </view>
     <view v-else-if="orders.length === 0" class="tip">

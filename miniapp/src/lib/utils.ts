@@ -115,12 +115,13 @@ export function selectRecommendations(
   return rotated.slice(0, Math.min(count, rotated.length));
 }
 
-/** 规格中文描述 */
+/** 规格中文描述；非饮品（无规格）返回空串 */
 export function specText(spec: {
   cup: string | null;
   temperature: string | null;
   sugar: string | null;
 }): string {
+  if (!spec.cup && !spec.temperature && !spec.sugar) return '';
   const cup = spec.cup === 'large' ? '大杯' : '中杯';
   const temp = spec.temperature === 'ice' ? '冰' : '热';
   const sugar =

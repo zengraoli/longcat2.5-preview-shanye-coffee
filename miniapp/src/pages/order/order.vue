@@ -225,7 +225,7 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
         :scroll-into-view="scrollTo"
         @scroll="onScroll"
       >
-        <view v-for="g in grouped" :key="g.category.id" :class="`section-${g.category.id}`">
+        <view v-for="g in grouped" :key="g.category.id" :id="`section-${g.category.id}`">
           <view class="section-title">{{ g.category.name }}</view>
           <view
             v-for="p in g.items"
@@ -724,9 +724,11 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
 .spec-options {
   display: flex;
   gap: 16rpx;
+  overflow: hidden;
 }
 .spec-option {
   flex: 1;
+  min-width: 0;
   text-align: center;
   padding: 18rpx 0;
   font-size: 26rpx;
@@ -734,6 +736,9 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
   background: #fff;
   border: 2rpx solid $brand-100;
   border-radius: 12rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   &.active {
     color: #fff;
     background: $brand-600;

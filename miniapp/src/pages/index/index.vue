@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 import { api } from '../../lib/api';
 import { formatYuan, selectRecommendations } from '../../lib/utils';
 import { usePromoProducts } from '../../lib/promoState';
@@ -46,8 +47,31 @@ function selectStore(id: number) {
 }
 
 function goOrder() {
-  uni.navigateTo({ url: '/pages/order/order' });
+  // 点单页是 tabBar 页，必须用 switchTab
+  uni.switchTab({ url: '/pages/order/order' });
 }
+
+// 返回首页时刷新门店与商品（后台可能修改了门店信息）
+onShow(() => {
+  api.get<Store[]>('/api/stores').then((list) => {
+    stores.value = list;
+  }).catch(() => {});
+});
+
+// 下拉刷新：重新拉取门店与商品
+onPullDownRefresh(async () => {
+  try {
+    const [storeList, productList] = await Promise.all([
+      api.get<Store[]>('/api/stores'),
+      api.get<Product[]>('/api/products'),
+    ]);
+    stores.value = storeList;
+    products.value = productList;
+    refreshPromoProducts();
+  } finally {
+    uni.stopPullDownRefresh();
+  }
+});
 
 const banners = [
   {
