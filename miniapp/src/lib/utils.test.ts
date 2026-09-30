@@ -9,6 +9,7 @@ import {
   specText,
   unitPrice,
 } from './utils';
+import { STATUS_TEXT, statusIndex } from './orderStatus';
 
 describe('formatYuan', () => {
   it('分 → ¥xx.xx', () => {
@@ -146,5 +147,25 @@ describe('couponDiscount', () => {
   it('折扣率非法时优惠为 0', () => {
     const t = { type: 'discount' as const, threshold: 0, discountAmount: null, discountRate: 100 };
     expect(couponDiscount(t, 10000)).toBe(0);
+  });
+});
+
+describe('orderStatus', () => {
+  it('状态文案', () => {
+    expect(STATUS_TEXT.pending_payment).toBe('待支付');
+    expect(STATUS_TEXT.ready).toBe('待取餐');
+    expect(STATUS_TEXT.cancelled).toBe('已取消');
+  });
+
+  it('进度位置：待支付 0 → 已完成 4', () => {
+    expect(statusIndex('pending_payment')).toBe(0);
+    expect(statusIndex('paid')).toBe(1);
+    expect(statusIndex('making')).toBe(2);
+    expect(statusIndex('ready')).toBe(3);
+    expect(statusIndex('completed')).toBe(4);
+  });
+
+  it('取消状态不在进度流中', () => {
+    expect(statusIndex('cancelled')).toBe(-1);
   });
 });

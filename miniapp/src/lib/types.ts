@@ -68,8 +68,10 @@ export interface Order {
   originalAmount: number;
   discountAmount: number;
   payableAmount: number;
+  remark: string | null;
   createdAt: string;
   paidAt: string | null;
+  cancelledAt: string | null;
   items: OrderItem[];
 }
 

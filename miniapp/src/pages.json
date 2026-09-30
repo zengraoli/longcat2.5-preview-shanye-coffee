@@ -14,11 +14,11 @@
     },
     {
       "path": "pages/orderDetail/orderDetail",
-      "style": { "navigationBarTitleText": "订单详情" }
+      "style": { "navigationBarTitleText": "订单详情", "enablePullDownRefresh": true }
     },
     {
       "path": "pages/orders/orders",
-      "style": { "navigationBarTitleText": "我的订单" }
+      "style": { "navigationBarTitleText": "我的订单", "enablePullDownRefresh": true }
     },
     {
       "path": "pages/profile/profile",
