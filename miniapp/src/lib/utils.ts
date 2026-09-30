@@ -22,6 +22,22 @@ export function maskPhone(phone: string | null | undefined): string {
   return `${phone.slice(0, 3)}****${phone.slice(-4)}`;
 }
 
+/**
+ * 按门店轮换推荐商品：过滤售罄后按门店偏移取前 count 个。
+ * 不同门店得到不同的推荐列表，保证门店切换后推荐随之变化。
+ */
+export function selectRecommendations(
+  products: { id: number; soldOut: boolean }[],
+  storeId: number,
+  count = 4,
+): { id: number; soldOut: boolean }[] {
+  const available = products.filter((p) => !p.soldOut);
+  if (available.length === 0) return [];
+  const offset = (Math.abs(storeId) - 1) % available.length;
+  const rotated = available.slice(offset).concat(available.slice(0, offset));
+  return rotated.slice(0, Math.min(count, rotated.length));
+}
+
 /** 规格中文描述 */
 export function specText(spec: {
   cup: string | null;
