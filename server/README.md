@@ -56,8 +56,10 @@ npm run smoke      # 端到端冒烟：会员登录 → 下单 → 支付 → �
 | 商品 | `GET /api/categories`、`GET /api/products`、`GET /api/products/:id` |
 | 后台商品 | `GET /api/admin/products`、`PATCH /api/admin/products/:id/status`、`PATCH /api/admin/products/:id/sold-out` |
 | 优惠券 | `POST /api/coupons/:templateId/claim`、`GET /api/member/coupons`、`GET /api/member/coupons/best` |
+| 活动 | `GET /api/promotions`（公开，当前生效活动与适用商品） |
 | 订单 | `POST /api/orders`、`GET /api/orders`、`GET /api/orders/:id`、`POST /api/orders/:id/pay`、`POST /api/orders/:id/cancel` |
 | 后台订单 | `GET /api/admin/orders`、`GET /api/admin/orders/:id`、`POST /api/admin/orders/:id/advance` |
+| 后台活动 | `GET /api/admin/promotions`、`POST /api/admin/promotions`、`PATCH /api/admin/promotions/:id`、`POST /api/admin/promotions/:id/toggle` |
 
 ## 约定
 

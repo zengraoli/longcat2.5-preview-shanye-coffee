@@ -18,7 +18,7 @@ export function formatBeijing(iso: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return '-';
   const bj = new Date(d.getTime() + 8 * 3600 * 1000);
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())} ${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}`;
+  return `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())} ${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}`;
 }
 
 /** 手机号脱敏：138****1234 */
