@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  computeAmounts,
+  couponDiscount,
   formatYuan,
   maskPhone,
   selectRecommendations,
@@ -93,5 +95,56 @@ describe('unitPrice', () => {
   it('负数价格归零', () => {
     expect(unitPrice(-100, 0)).toBe(0);
     expect(unitPrice(2800, -50)).toBe(2800);
+  });
+});
+
+describe('computeAmounts', () => {
+  it('原价 = Σ(单价 × 数量)', () => {
+    const r = computeAmounts(
+      [
+        { price: 2800, quantity: 2 },
+        { price: 3100, quantity: 1 },
+      ],
+      0,
+    );
+    expect(r.originalAmount).toBe(8700);
+    expect(r.discountAmount).toBe(0);
+    expect(r.payableAmount).toBe(8700);
+  });
+
+  it('优惠不超过原价且不为负', () => {
+    const r = computeAmounts([{ price: 2800, quantity: 1 }], 2000);
+    expect(r.discountAmount).toBe(2000);
+    expect(r.payableAmount).toBe(800);
+    const r2 = computeAmounts([{ price: 2800, quantity: 1 }], 9999);
+    expect(r2.discountAmount).toBe(2800);
+    expect(r2.payableAmount).toBe(0);
+    const r3 = computeAmounts([{ price: 2800, quantity: 1 }], -100);
+    expect(r3.discountAmount).toBe(0);
+  });
+});
+
+describe('couponDiscount', () => {
+  it('满减券：满足门槛减固定金额', () => {
+    const t = { type: 'full_reduction' as const, threshold: 10000, discountAmount: 2000, discountRate: null };
+    expect(couponDiscount(t, 10000)).toBe(2000);
+    expect(couponDiscount(t, 12000)).toBe(2000);
+  });
+
+  it('满减券：未达门槛优惠为 0', () => {
+    const t = { type: 'full_reduction' as const, threshold: 10000, discountAmount: 2000, discountRate: null };
+    expect(couponDiscount(t, 9999)).toBe(0);
+  });
+
+  it('折扣券：按折扣率向下取整到分', () => {
+    const t = { type: 'discount' as const, threshold: 0, discountAmount: null, discountRate: 90 };
+    expect(couponDiscount(t, 10000)).toBe(1000);
+    expect(couponDiscount(t, 2800)).toBe(280);
+    expect(couponDiscount(t, 99)).toBe(9);
+  });
+
+  it('折扣率非法时优惠为 0', () => {
+    const t = { type: 'discount' as const, threshold: 0, discountAmount: null, discountRate: 100 };
+    expect(couponDiscount(t, 10000)).toBe(0);
   });
 });

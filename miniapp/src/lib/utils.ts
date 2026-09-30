@@ -43,6 +43,55 @@ export function unitPrice(basePrice: number, priceAdjust: number): number {
   return Math.max(0, basePrice) + Math.max(0, priceAdjust);
 }
 
+export interface AmountInput {
+  /** 单价（含规格加价，分） */
+  price: number;
+  quantity: number;
+}
+
+export interface AmountDetail {
+  originalAmount: number;
+  discountAmount: number;
+  payableAmount: number;
+}
+
+/**
+ * 订单金额明细：与 server 的 computeOrderAmount 保持一致。
+ * 原价 = Σ(单价 × 数量)；优惠 = min(优惠, 原价)，不为负；实付 = 原价 - 优惠。
+ */
+export function computeAmounts(items: AmountInput[], discount: number): AmountDetail {
+  const originalAmount = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+  const discountAmount = Math.min(Math.max(discount, 0), originalAmount);
+  const payableAmount = originalAmount - discountAmount;
+  return { originalAmount, discountAmount, payableAmount };
+}
+
+export interface CouponTemplateLike {
+  type: 'full_reduction' | 'discount';
+  /** 满减门槛（分），折扣券为 0 */
+  threshold: number;
+  /** 满减金额（分），折扣券为 null */
+  discountAmount: number | null;
+  /** 折扣率（如 90 表示 9 折），满减券为 null */
+  discountRate: number | null;
+}
+
+/**
+ * 优惠券优惠金额（分）：与 server 的 computeDiscount 保持一致。
+ * 满减券：原价 >= 门槛时减 discountAmount；
+ * 折扣券：优惠 = 原价 × (100 - 折扣率) / 100，向下取整到分。
+ */
+export function couponDiscount(template: CouponTemplateLike, originalAmount: number): number {
+  if (originalAmount <= 0) return 0;
+  if (template.type === 'full_reduction') {
+    if (originalAmount < template.threshold) return 0;
+    return template.discountAmount ?? 0;
+  }
+  const rate = template.discountRate ?? 100;
+  if (rate <= 0 || rate >= 100) return 0;
+  return Math.floor((originalAmount * (100 - rate)) / 100);
+}
+
 /**
  * 按门店轮换推荐商品：过滤售罄后按门店偏移取前 count 个。
  * 不同门店得到不同的推荐列表，保证门店切换后推荐随之变化。
