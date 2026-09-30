@@ -149,7 +149,7 @@ export default function Dashboard() {
                 {stats.recentOrders.map((o) => (
                   <TableRow key={o.id}>
                     <TableCell>{o.orderNo}</TableCell>
-                    <TableCell>{o.storeId}</TableCell>
+                    <TableCell>{o.storeName}</TableCell>
                     <TableCell>{o.type === 'pickup' ? '自提' : '堂食'}</TableCell>
                     <TableCell>
                       <Badge variant={statusLabel[o.status as OrderStatus]?.variant ?? 'muted'}>

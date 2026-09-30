@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, watch } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { formatYuan, formatBeijing } from '../lib/utils';
@@ -84,6 +84,11 @@ export default function Orders() {
       setLoading(false);
     }
   }, [storeFilter, statusFilter, start, end, page]);
+
+  // 切换筛选条件时页码回到第 1 页
+  watch([storeFilter, statusFilter, start, end], () => {
+    setPage(1);
+  });
 
   useEffect(() => {
     load();
@@ -281,7 +286,9 @@ export default function Orders() {
                 )}
                 <div>
                   <span className="text-brand-400">优惠券优惠：</span>
-                  {formatYuan(detail.discountAmount)}
+                  <span className="text-caramel-600">
+                    -{formatYuan(detail.discountAmount)}
+                  </span>
                 </div>
                 <div>
                   <span className="text-brand-400">实付：</span>

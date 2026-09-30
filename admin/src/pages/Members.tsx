@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import type { Member } from '../lib/types';
+
+const ORDER_STATUS_TEXT: Record<string, string> = {
+  pending_payment: '待支付',
+  paid: '已支付',
+  making: '制作中',
+  ready: '待取餐',
+  completed: '已完成',
+  cancelled: '已取消',
+};
+
+const COUPON_STATUS_TEXT: Record<string, string> = {
+  unused: '未使用',
+  used: '已使用',
+  expired: '已过期',
+};
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { formatBeijing } from '../lib/utils';
@@ -142,7 +157,7 @@ export default function Members() {
                       {detail.orders.map((o) => (
                         <TableRow key={o.id}>
                           <TableCell>{o.orderNo}</TableCell>
-                          <TableCell>{o.status}</TableCell>
+                          <TableCell>{ORDER_STATUS_TEXT[o.status] ?? o.status}</TableCell>
                           <TableCell className="text-right">¥{(o.payableAmount / 100).toFixed(2)}</TableCell>
                           <TableCell>{formatBeijing(o.createdAt)}</TableCell>
                         </TableRow>
@@ -171,7 +186,7 @@ export default function Members() {
                         <TableRow key={c.id}>
                           <TableCell>{c.name}</TableCell>
                           <TableCell>{c.type === 'full_reduction' ? '满减' : '折扣'}</TableCell>
-                          <TableCell>{c.status}</TableCell>
+                          <TableCell>{COUPON_STATUS_TEXT[c.status] ?? c.status}</TableCell>
                           <TableCell>{formatBeijing(c.expiresAt)}</TableCell>
                         </TableRow>
                       ))}

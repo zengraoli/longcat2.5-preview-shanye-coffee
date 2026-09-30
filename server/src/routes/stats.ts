@@ -126,23 +126,29 @@ export default async function statsRoutes(app: FastifyInstance) {
         newMembers: newMembers.n,
         trend7d,
         topProducts,
-        recentOrders: recentOrders.map((o) => ({
-          id: o.id,
-          orderNo: o.order_no,
-          storeId: o.store_id,
-          type: o.type,
-          status: o.status,
-          pickupCode: o.pickup_code,
-          originalAmount: o.original_amount,
-          discountAmount: o.discount_amount,
-          payableAmount: o.payable_amount,
-          couponId: o.coupon_id,
-          remark: o.remark,
-          createdAt: o.created_at,
-          paidAt: o.paid_at,
-          cancelledAt: o.cancelled_at,
-          items: [],
-        })),
+        recentOrders: recentOrders.map((o) => {
+          const store = db.prepare('SELECT name FROM stores WHERE id = ?').get(o.store_id) as
+            | { name: string }
+            | undefined;
+          return {
+            id: o.id,
+            orderNo: o.order_no,
+            storeId: o.store_id,
+            storeName: store?.name ?? '',
+            type: o.type,
+            status: o.status,
+            pickupCode: o.pickup_code,
+            originalAmount: o.original_amount,
+            discountAmount: o.discount_amount,
+            payableAmount: o.payable_amount,
+            couponId: o.coupon_id,
+            remark: o.remark,
+            createdAt: o.created_at,
+            paidAt: o.paid_at,
+            cancelledAt: o.cancelled_at,
+            items: [],
+          };
+        }),
       });
     },
   );

@@ -130,13 +130,21 @@ export default function Promotions() {
       setError('结束时间必须晚于开始时间');
       return;
     }
+    if (form.productIds.length === 0) {
+      setError('请至少选择一个适用商品');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
+      // 结束时间补到当天 23:59:59.999（datetime-local 不含秒）
+      const endLocal = form.endAt.includes(':') && form.endAt.split(':').length === 2
+        ? `${form.endAt}:59`
+        : form.endAt;
       const payload = {
         name: form.name.trim(),
         start_at: fromLocalInput(form.startAt),
-        end_at: fromLocalInput(form.endAt),
+        end_at: fromLocalInput(endLocal),
         product_ids: form.productIds,
       };
       if (editing) {
@@ -171,8 +179,6 @@ export default function Promotions() {
           <Plus /> 新建活动
         </Button>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
       <div className="rounded-lg border border-brand-100 bg-white">
         <Table>
           <TableHeader>
@@ -230,6 +236,7 @@ export default function Promotions() {
           <DialogHeader>
             <DialogTitle>{editing ? '编辑活动' : '新建活动'}</DialogTitle>
           </DialogHeader>
+          {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-brand-700">

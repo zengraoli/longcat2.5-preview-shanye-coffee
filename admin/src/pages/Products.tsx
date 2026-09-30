@@ -249,9 +249,11 @@ export default function Products() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
-                      编辑
-                    </Button>
+                    <Can roles={['admin']}>
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
+                        编辑
+                      </Button>
+                    </Can>
                     <Can roles={['admin']}>
                       <Button variant="outline" size="sm" onClick={() => toggleStatus(p)}>
                         {p.status === 'on' ? '下架' : '上架'}

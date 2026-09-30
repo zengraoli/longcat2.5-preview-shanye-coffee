@@ -91,6 +91,7 @@ export interface Order {
   id: number;
   orderNo: string;
   storeId: number;
+  storeName?: string;
   type: 'pickup' | 'dine_in';
   status: OrderStatus;
   pickupCode: string | null;
