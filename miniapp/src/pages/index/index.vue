@@ -2,8 +2,11 @@
 import { computed, onMounted, ref } from 'vue';
 import { api } from '../../lib/api';
 import { formatYuan, selectRecommendations } from '../../lib/utils';
+import { usePromoProducts } from '../../lib/promoState';
 import type { Product, Store } from '../../lib/types';
 import ProductArt from '../../components/ProductArt.vue';
+
+const { refreshPromoProducts, isPromoProduct } = usePromoProducts();
 
 const stores = ref<Store[]>([]);
 const products = ref<Product[]>([]);
@@ -18,6 +21,7 @@ onMounted(async () => {
     ]);
     stores.value = storeList;
     products.value = productList;
+    refreshPromoProducts();
     // 默认选中第一家营业门店
     const firstOpen = storeList.find((s) => s.isOpen);
     currentStoreId.value = (firstOpen ?? storeList[0])?.id ?? 0;
@@ -139,7 +143,10 @@ const banners = [
             <ProductArt :image="p.image" :name="p.name" />
           </view>
           <view class="product-info">
-            <text class="product-name">{{ p.name }}</text>
+            <view class="product-name-row">
+              <text class="product-name">{{ p.name }}</text>
+              <text v-if="isPromoProduct(p.id)" class="promo-tag">第二杯半价</text>
+            </view>
             <text class="product-desc">{{ p.description }}</text>
             <text class="product-price">{{ formatYuan(p.price) }}</text>
           </view>
@@ -337,11 +344,23 @@ const banners = [
 .product-info {
   padding: 20rpx;
 }
+.product-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
 .product-name {
-  display: block;
   font-size: 28rpx;
   font-weight: 600;
   color: $brand-900;
+}
+.promo-tag {
+  font-size: 18rpx;
+  color: $caramel-600;
+  background: #faf0e3;
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
+  flex-shrink: 0;
 }
 .product-desc {
   display: block;

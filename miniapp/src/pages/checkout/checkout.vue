@@ -4,7 +4,8 @@ import { api, ApiError } from '../../lib/api';
 import { useCart } from '../../lib/cart';
 import { getSession } from '../../lib/auth';
 import { currentStoreId, resolveStore } from '../../lib/shop';
-import { computeAmounts, couponDiscount, formatYuan, maskPhone, specText } from '../../lib/utils';
+import { computePromoDiscount } from '../../lib/promo';
+import { couponDiscount, formatYuan, maskPhone, specText } from '../../lib/utils';
 import type { Coupon, Store } from '../../lib/types';
 
 const { items: cartItems, totalAmount, clear: clearCart } = useCart();
@@ -18,12 +19,25 @@ const coupons = ref<Coupon[]>([]);
 /** 当前选中的优惠券 ID；null 表示不使用；'auto' 表示跟随最优券 */
 const selectedCouponId = ref<number | 'auto' | null>('auto');
 const couponPopupVisible = ref(false);
+/** 活动适用商品集合（第二杯半价） */
+const promoProductIds = ref<Set<number>>(new Set());
 
 const currentStore = computed<Store | null>(() => resolveStore(stores.value));
 
 const originalAmount = computed(() =>
   cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0),
 );
+
+/** 第二杯半价优惠（分），与 server 计算保持一致 */
+const promoDiscount = computed(() =>
+  computePromoDiscount(
+    cartItems.map((i) => ({ productId: i.productId, price: i.price, quantity: i.quantity })),
+    promoProductIds.value,
+  ),
+);
+
+/** 活动后金额：优惠券的门槛判断与优惠金额基于此（先活动后券） */
+const afterPromoAmount = computed(() => originalAmount.value - promoDiscount.value);
 
 /** 当前选中优惠券的优惠金额（分），与 server 计算保持一致 */
 const discountAmount = computed(() => {
@@ -34,22 +48,18 @@ const discountAmount = computed(() => {
   }
   const coupon = coupons.value.find((c) => c.id === selectedCouponId.value);
   if (!coupon || !coupon.usable) return 0;
-  return couponDiscount(coupon, originalAmount.value);
+  return couponDiscount(coupon, afterPromoAmount.value);
 });
 
-const amounts = computed(() =>
-  computeAmounts(
-    cartItems.map((i) => ({ price: i.price, quantity: i.quantity })),
-    discountAmount.value,
-  ),
-);
+/** 实付 = 活动后金额 - 券优惠 */
+const payableAmount = computed(() => Math.max(0, afterPromoAmount.value - discountAmount.value));
 
 /** 最优券（用于默认推荐与“最优券”选项） */
 const bestCoupon = computed(() => {
   let best: { coupon: Coupon; discount: number } | null = null;
   for (const c of coupons.value) {
     if (!c.usable) continue;
-    const d = couponDiscount(c, originalAmount.value);
+    const d = couponDiscount(c, afterPromoAmount.value);
     if (d <= 0) continue;
     if (!best || d > best.discount) best = { coupon: c, discount: d };
   }
@@ -68,12 +78,14 @@ const selectedCouponText = computed(() => {
 onMounted(async () => {
   if (!getSession()) return;
   try {
-    const [storeList, couponList] = await Promise.all([
+    const [storeList, couponList, promo] = await Promise.all([
       api.get<Store[]>('/api/stores'),
       api.get<Coupon[]>('/api/member/coupons'),
+      api.get<{ applicableProductIds: number[] }>('/api/promotions').catch(() => null),
     ]);
     stores.value = storeList;
     coupons.value = couponList;
+    promoProductIds.value = new Set(promo?.applicableProductIds ?? []);
     // 默认选中可用优惠券中的最优券
     if (bestCoupon.value) {
       selectedCouponId.value = 'auto';
@@ -237,22 +249,26 @@ const sessionPhone = computed(() => {
       <view class="card">
         <view class="amount-row">
           <text class="amount-label">商品原价</text>
-          <text class="amount-value">{{ formatYuan(amounts.originalAmount) }}</text>
+          <text class="amount-value">{{ formatYuan(originalAmount) }}</text>
+        </view>
+        <view v-if="promoDiscount > 0" class="amount-row">
+          <text class="amount-label">活动优惠（第二杯半价）</text>
+          <text class="amount-value discount">-{{ formatYuan(promoDiscount) }}</text>
         </view>
         <view class="amount-row">
-          <text class="amount-label">优惠</text>
-          <text class="amount-value discount">-{{ formatYuan(amounts.discountAmount) }}</text>
+          <text class="amount-label">优惠券优惠</text>
+          <text class="amount-value discount">-{{ formatYuan(discountAmount) }}</text>
         </view>
         <view class="amount-row total">
           <text class="amount-label">实付</text>
-          <text class="amount-value payable">{{ formatYuan(amounts.payableAmount) }}</text>
+          <text class="amount-value payable">{{ formatYuan(payableAmount) }}</text>
         </view>
       </view>
 
       <!-- 底部提交栏 -->
       <view class="footer">
         <view class="footer-amount">
-          <text class="footer-total">{{ formatYuan(amounts.payableAmount) }}</text>
+          <text class="footer-total">{{ formatYuan(payableAmount) }}</text>
           <text class="footer-account">{{ sessionPhone }}</text>
         </view>
         <text class="footer-submit" :class="{ disabled: submitting }" @tap="submitOrder">
@@ -294,7 +310,7 @@ const sessionPhone = computed(() => {
                   {{ c.type === 'full_reduction' ? `满${formatYuan(c.threshold)}减${formatYuan(c.discountAmount ?? 0)}` : `${c.discountRate}折` }}
                 </text>
               </view>
-              <text class="coupon-option-discount">-{{ formatYuan(couponDiscount(c, originalAmount)) }}</text>
+              <text class="coupon-option-discount">-{{ formatYuan(couponDiscount(c, afterPromoAmount)) }}</text>
             </view>
             <view
               class="coupon-option"

@@ -11,6 +11,7 @@ import Orders from './pages/Orders';
 import Stores from './pages/Stores';
 import Members from './pages/Members';
 import Coupons from './pages/Coupons';
+import Promotions from './pages/Promotions';
 import Accounts from './pages/Accounts';
 import { NAV_ITEMS } from './lib/nav';
 import { setUnauthorizedHandler } from './lib/api';
@@ -29,6 +30,8 @@ function PageByNavKey({ itemKey }: { itemKey: string }) {
       return <Members />;
     case 'coupons':
       return <Coupons />;
+    case 'promotions':
+      return <Promotions />;
     case 'accounts':
       return <Accounts />;
     default:

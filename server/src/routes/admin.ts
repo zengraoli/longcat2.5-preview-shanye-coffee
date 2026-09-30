@@ -503,4 +503,184 @@ export default async function adminRoutes(app: FastifyInstance) {
       ok(reply, templateView(row));
     },
   );
+
+  // 活动列表（仅管理员）
+  app.get(
+    '/api/admin/promotions',
+    { preHandler: [app.requireAdmin] },
+    async (_req, reply) => {
+      const db = getDb();
+      const rows = db
+        .prepare('SELECT * FROM promotions ORDER BY sort, id')
+        .all() as PromotionRow[];
+      ok(reply, rows.map(promotionView));
+    },
+  );
+
+  // 创建活动（仅管理员）
+  app.post<{ Body: Record<string, unknown> }>(
+    '/api/admin/promotions',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const body = req.body ?? {};
+      const name = body.name;
+      if (!name || typeof name !== 'string' || name.trim() === '') {
+        throw err(ErrorCode.VALIDATION, '活动名称非法');
+      }
+      const startAt = parsePromoTime(body.start_at, '开始时间');
+      const endAt = parsePromoTime(body.end_at, '结束时间');
+      if (new Date(endAt).getTime() <= new Date(startAt).getTime()) {
+        throw err(ErrorCode.VALIDATION, '结束时间必须晚于开始时间');
+      }
+      const productIds = parseProductIds(body.product_ids);
+      const db = getDb();
+      const maxSort = (
+        db.prepare('SELECT COALESCE(MAX(sort), 0) AS m FROM promotions').get() as { m: number }
+      ).m;
+      const tx = db.transaction(() => {
+        const info = db
+          .prepare(
+            `INSERT INTO promotions (name, type, start_at, end_at, enabled, sort)
+             VALUES (?, 'second_cup_half', ?, ?, 1, ?)`,
+          )
+          .run(name.trim(), startAt, endAt, maxSort + 1);
+        const promoId = Number(info.lastInsertRowid);
+        const insertProduct = db.prepare(
+          'INSERT OR IGNORE INTO promotion_products (promotion_id, product_id) VALUES (?, ?)',
+        );
+        for (const pid of productIds) insertProduct.run(promoId, pid);
+        return promoId;
+      });
+      const promoId = tx();
+      const row = db.prepare('SELECT * FROM promotions WHERE id = ?').get(promoId) as PromotionRow;
+      ok(reply, promotionView(row));
+    },
+  );
+
+  // 编辑活动（时间 / 适用商品 / 名称，仅管理员）
+  app.patch<{ Params: { id: string }; Body: Record<string, unknown> }>(
+    '/api/admin/promotions/:id',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        throw err(ErrorCode.VALIDATION, '活动 ID 非法');
+      }
+      const db = getDb();
+      const p = db.prepare('SELECT * FROM promotions WHERE id = ?').get(id) as PromotionRow | undefined;
+      if (!p) throw err(ErrorCode.NOT_FOUND, '活动不存在', 404);
+      const body = req.body ?? {};
+      const name = body.name !== undefined ? String(body.name).trim() : p.name;
+      if (!name) throw err(ErrorCode.VALIDATION, '活动名称非法');
+      const startAt =
+        body.start_at !== undefined ? parsePromoTime(body.start_at, '开始时间') : p.start_at;
+      const endAt =
+        body.end_at !== undefined ? parsePromoTime(body.end_at, '结束时间') : p.end_at;
+      if (new Date(endAt).getTime() <= new Date(startAt).getTime()) {
+        throw err(ErrorCode.VALIDATION, '结束时间必须晚于开始时间');
+      }
+      // 适用商品：不传则保留原配置；传空数组表示清空
+      const productIds =
+        body.product_ids !== undefined ? parseProductIds(body.product_ids) : null;
+      const tx = db.transaction(() => {
+        db.prepare('UPDATE promotions SET name = ?, start_at = ?, end_at = ? WHERE id = ?').run(
+          name,
+          startAt,
+          endAt,
+          id,
+        );
+        if (productIds !== null) {
+          db.prepare('DELETE FROM promotion_products WHERE promotion_id = ?').run(id);
+          const insertProduct = db.prepare(
+            'INSERT OR IGNORE INTO promotion_products (promotion_id, product_id) VALUES (?, ?)',
+          );
+          for (const pid of productIds) insertProduct.run(id, pid);
+        }
+      });
+      tx();
+      const row = db.prepare('SELECT * FROM promotions WHERE id = ?').get(id) as PromotionRow;
+      ok(reply, promotionView(row));
+    },
+  );
+
+  // 停用/启用活动（仅管理员）
+  app.post<{ Params: { id: string }; Body: Record<string, unknown> }>(
+    '/api/admin/promotions/:id/toggle',
+    { preHandler: [app.requireAdmin] },
+    async (req, reply) => {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        throw err(ErrorCode.VALIDATION, '活动 ID 非法');
+      }
+      const db = getDb();
+      const p = db.prepare('SELECT * FROM promotions WHERE id = ?').get(id) as PromotionRow | undefined;
+      if (!p) throw err(ErrorCode.NOT_FOUND, '活动不存在', 404);
+      const enabled = p.enabled === 1 ? 0 : 1;
+      db.prepare('UPDATE promotions SET enabled = ? WHERE id = ?').run(enabled, id);
+      const row = db.prepare('SELECT * FROM promotions WHERE id = ?').get(id) as PromotionRow;
+      ok(reply, promotionView(row));
+    },
+  );
+}
+
+interface PromotionRow {
+  id: number;
+  name: string;
+  type: string;
+  start_at: string;
+  end_at: string;
+  enabled: number;
+  sort: number;
+}
+
+function promotionView(p: PromotionRow) {
+  const db = getDb();
+  const productRows = db
+    .prepare('SELECT product_id FROM promotion_products WHERE promotion_id = ? ORDER BY product_id')
+    .all(p.id) as { product_id: number }[];
+  const now = new Date();
+  const active =
+    p.enabled === 1 &&
+    now.getTime() >= new Date(p.start_at).getTime() &&
+    now.getTime() <= new Date(p.end_at).getTime();
+  return {
+    id: p.id,
+    name: p.name,
+    type: p.type,
+    startAt: p.start_at,
+    endAt: p.end_at,
+    enabled: p.enabled === 1,
+    active,
+    productIds: productRows.map((r) => r.product_id),
+  };
+}
+
+/** 解析并校验活动时间（支持 YYYY-MM-DD 或完整 ISO8601）。 */
+function parsePromoTime(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw err(ErrorCode.VALIDATION, `${label}非法`);
+  }
+  const normalized = value.includes('T') ? value : `${value}T00:00:00.000Z`;
+  const t = new Date(normalized).getTime();
+  if (Number.isNaN(t)) throw err(ErrorCode.VALIDATION, `${label}非法`);
+  return new Date(t).toISOString();
+}
+
+/** 解析并校验适用商品 ID 列表。 */
+function parseProductIds(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    throw err(ErrorCode.VALIDATION, '适用商品列表非法');
+  }
+  const db = getDb();
+  const ids: number[] = [];
+  for (const v of value) {
+    const id = Number(v);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw err(ErrorCode.VALIDATION, '适用商品 ID 非法');
+    }
+    const product = db.prepare('SELECT id FROM products WHERE id = ?').get(id) as { id: number } | undefined;
+    if (!product) throw err(ErrorCode.NOT_FOUND, `商品 ${id} 不存在`, 404);
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return ids;
 }

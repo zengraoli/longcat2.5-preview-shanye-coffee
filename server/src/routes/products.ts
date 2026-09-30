@@ -181,6 +181,51 @@ export default async function productRoutes(app: FastifyInstance) {
     ok(reply, full);
   });
 
+  // 当前生效的活动（公开）：供小程序/官网价格展示
+  app.get(
+    '/api/promotions',
+    async (_req, reply) => {
+      const db = getDb();
+      const rows = db
+        .prepare(
+          "SELECT id, name, type, start_at, end_at, enabled FROM promotions WHERE type = 'second_cup_half' AND enabled = 1 ORDER BY sort, id",
+        )
+        .all() as {
+        id: number;
+        name: string;
+        type: string;
+        start_at: string;
+        end_at: string;
+        enabled: number;
+      }[];
+      const now = new Date().getTime();
+      const active = rows.filter(
+        (p) =>
+          now >= new Date(p.start_at).getTime() && now <= new Date(p.end_at).getTime(),
+      );
+      const productIds = new Set<number>();
+      if (active.length > 0) {
+        const placeholders = active.map(() => '?').join(',');
+        const productRows = db
+          .prepare(
+            `SELECT product_id FROM promotion_products WHERE promotion_id IN (${placeholders})`,
+          )
+          .all(...active.map((p) => p.id)) as { product_id: number }[];
+        for (const r of productRows) productIds.add(r.product_id);
+      }
+      ok(reply, {
+        promotions: active.map((p) => ({
+          id: p.id,
+          name: p.name,
+          type: p.type,
+          startAt: p.start_at,
+          endAt: p.end_at,
+        })),
+        applicableProductIds: [...productIds],
+      });
+    },
+  );
+
   // 后台商品列表：含下架商品，可按分类/状态筛选（管理员或店员）
   app.get<{ Querystring: { category_id?: string; status?: string } }>(
     '/api/admin/products',

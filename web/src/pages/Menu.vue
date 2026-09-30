@@ -6,6 +6,8 @@ import { formatYuan, specText } from '../lib/utils';
 import type { Category, Product } from '../lib/types';
 import ProductArt from '../components/ProductArt.vue';
 
+const promoProductIds = ref<Set<number>>(new Set());
+
 const route = useRoute();
 const categories = ref<Category[]>([]);
 const products = ref<Product[]>([]);
@@ -21,12 +23,16 @@ if (Number.isInteger(initialCategory) && initialCategory > 0) {
 
 onMounted(async () => {
   try {
-    const [cats, prods] = await Promise.all([
+    const [cats, prods, promo] = await Promise.all([
       api.get<Category[]>('/api/categories'),
       api.get<Product[]>('/api/products'),
+      api
+        .get<{ applicableProductIds: number[] }>('/api/promotions')
+        .catch(() => null),
     ]);
     categories.value = cats;
     products.value = prods;
+    promoProductIds.value = new Set(promo?.applicableProductIds ?? []);
     if (cats.length > 0) activeCategory.value = 'all';
   } finally {
     loading.value = false;
@@ -97,7 +103,10 @@ const openDetail = (p: Product) => {
             <ProductArt :image="p.image" :name="p.name" />
           </div>
           <div class="product-info">
-            <div class="product-name">{{ p.name }}</div>
+            <div class="product-name-row">
+              <span class="product-name">{{ p.name }}</span>
+              <span v-if="promoProductIds.has(p.id)" class="promo-tag">第二杯半价</span>
+            </div>
             <div class="product-desc">{{ p.description }}</div>
             <div class="product-foot">
               <span class="product-price">{{ formatYuan(p.price) }}</span>
@@ -233,9 +242,23 @@ const openDetail = (p: Product) => {
   gap: 0.35rem;
   flex: 1;
 }
+.product-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
 .product-name {
   font-weight: 700;
   color: var(--brand-900);
+}
+.promo-tag {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--caramel-600);
+  background: #faf0e3;
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  flex-shrink: 0;
 }
 .product-desc {
   font-size: 0.8rem;

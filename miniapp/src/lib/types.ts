@@ -76,6 +76,7 @@ export interface Order {
   status: OrderStatus;
   pickupCode: string | null;
   originalAmount: number;
+  promoDiscountAmount: number;
   discountAmount: number;
   payableAmount: number;
   remark: string | null;
@@ -83,6 +84,19 @@ export interface Order {
   paidAt: string | null;
   cancelledAt: string | null;
   items: OrderItem[];
+}
+
+export interface Promotion {
+  id: number;
+  name: string;
+  type: 'second_cup_half';
+  startAt: string;
+  endAt: string;
+}
+
+export interface ActivePromotions {
+  promotions: Promotion[];
+  applicableProductIds: number[];
 }
 
 export interface Coupon {

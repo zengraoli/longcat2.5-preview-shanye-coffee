@@ -21,6 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'stores', label: '门店管理', icon: 'Store', path: '/stores', roles: ['admin'] },
   { key: 'members', label: '会员管理', icon: 'Users', path: '/members', roles: ['admin'] },
   { key: 'coupons', label: '优惠券', icon: 'Ticket', path: '/coupons', roles: ['admin'] },
+  { key: 'promotions', label: '活动管理', icon: 'Sparkles', path: '/promotions', roles: ['admin'] },
   { key: 'accounts', label: '账号与角色', icon: 'KeyRound', path: '/accounts', roles: ['admin'] },
 ];
 

@@ -110,6 +110,7 @@ const STATEMENTS: string[] = [
       CHECK (status IN ('pending_payment','paid','making','ready','completed','cancelled')),
     pickup_code TEXT,
     original_amount INTEGER NOT NULL DEFAULT 0,
+    promo_discount_amount INTEGER NOT NULL DEFAULT 0,
     discount_amount INTEGER NOT NULL DEFAULT 0,
     payable_amount INTEGER NOT NULL DEFAULT 0,
     coupon_id INTEGER,
@@ -117,6 +118,23 @@ const STATEMENTS: string[] = [
     created_at TEXT NOT NULL,
     paid_at TEXT,
     cancelled_at TEXT
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS promotions (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'second_cup_half' CHECK (type = 'second_cup_half'),
+    start_at TEXT NOT NULL,
+    end_at TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    sort INTEGER NOT NULL DEFAULT 0
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS promotion_products (
+    id INTEGER PRIMARY KEY,
+    promotion_id INTEGER NOT NULL REFERENCES promotions(id),
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    UNIQUE (promotion_id, product_id)
   )`,
 
   `CREATE TABLE IF NOT EXISTS order_items (
@@ -161,5 +179,10 @@ export function migrate(db: Database) {
   const acols = db.prepare('PRAGMA table_info(admins)').all() as { name: string }[];
   if (!acols.some((c) => c.name === 'enabled')) {
     db.exec('ALTER TABLE admins ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1');
+  }
+  // 兼容旧库：补 orders.promo_discount_amount 列
+  const ocols = db.prepare('PRAGMA table_info(orders)').all() as { name: string }[];
+  if (!ocols.some((c) => c.name === 'promo_discount_amount')) {
+    db.exec('ALTER TABLE orders ADD COLUMN promo_discount_amount INTEGER NOT NULL DEFAULT 0');
   }
 }

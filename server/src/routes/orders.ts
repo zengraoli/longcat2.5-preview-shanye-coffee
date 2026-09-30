@@ -5,7 +5,8 @@ import { err, ErrorCode } from '../lib/errors.js';
 import { ok } from '../lib/reply.js';
 import { maskPhone } from '../lib/mask.js';
 import { bestCoupon, isCouponUsable, type CouponTemplate, type MemberCoupon } from '../services/coupon.js';
-import { canAdvance, computeOrderAmount, isBeforePayment, type OrderStatus } from '../services/order.js';
+import { canAdvance, isBeforePayment, type OrderStatus } from '../services/order.js';
+import { computePromoDiscount } from '../services/promo.js';
 import { pointsForAmount } from '../services/points.js';
 
 interface ProductRow {
@@ -41,6 +42,7 @@ interface OrderRow {
   status: OrderStatus;
   pickup_code: string | null;
   original_amount: number;
+  promo_discount_amount: number;
   discount_amount: number;
   payable_amount: number;
   coupon_id: number | null;
@@ -170,6 +172,25 @@ function genPickupCode(db: ReturnType<typeof getDb>): string {
   return String(randomInt(0, 10000)).padStart(4, '0');
 }
 
+/** 加载当前生效的第二杯半价活动适用商品集合；无活动返回 null。 */
+function activePromoProductIds(db: ReturnType<typeof getDb>): Set<number> | null {
+  const promo = db
+    .prepare(
+      "SELECT id, name, type, start_at, end_at, enabled FROM promotions WHERE type = 'second_cup_half' AND enabled = 1",
+    )
+    .all();
+  const now = new Date();
+  const active = (promo as { id: number; start_at: string; end_at: string }[]).find((p) => {
+    const t = now.getTime();
+    return t >= new Date(p.start_at).getTime() && t <= new Date(p.end_at).getTime();
+  });
+  if (!active) return null;
+  const rows = db
+    .prepare('SELECT product_id FROM promotion_products WHERE promotion_id = ?')
+    .all(active.id) as { product_id: number }[];
+  return new Set(rows.map((r) => r.product_id));
+}
+
 function orderView(o: OrderRow, items: OrderItemRow[]) {
   return {
     id: o.id,
@@ -179,6 +200,7 @@ function orderView(o: OrderRow, items: OrderItemRow[]) {
     status: o.status,
     pickupCode: o.pickup_code,
     originalAmount: o.original_amount,
+    promoDiscountAmount: o.promo_discount_amount,
     discountAmount: o.discount_amount,
     payableAmount: o.payable_amount,
     couponId: o.coupon_id,
@@ -271,13 +293,28 @@ export default async function orderRoutes(app: FastifyInstance) {
       const resolved = items.map(resolveItem);
       const originalAmount = resolved.reduce((s, r) => s + r.item.price * r.item.quantity, 0);
 
+      // 第二杯半价：先算活动价（同一适用商品第 2、4… 杯半价）
+      const promoProductIds = activePromoProductIds(db);
+      const promoDiscount = promoProductIds
+        ? computePromoDiscount(
+            resolved.map((r) => ({
+              productId: r.item.product_id,
+              price: r.item.price,
+              quantity: r.item.quantity,
+            })),
+            promoProductIds,
+          )
+        : 0;
+      // 活动后金额：优惠券的门槛判断与优惠金额基于此
+      const afterPromoAmount = originalAmount - promoDiscount;
+
       // 优惠券：coupon_id 传 0 表示不使用；不传则自动推荐最优券
       let discount = 0;
       let usedCouponId: number | null = null;
       if (coupon_id === 0) {
         // 显式不使用优惠券
       } else if (coupon_id) {
-        const { discount: d } = app.computeCouponDiscount(req.user.id, coupon_id, originalAmount);
+        const { discount: d } = app.computeCouponDiscount(req.user.id, coupon_id, afterPromoAmount);
         discount = d;
         usedCouponId = coupon_id;
       } else {
@@ -293,17 +330,16 @@ export default async function orderRoutes(app: FastifyInstance) {
             templates.set(c.template_id, toTemplate(t));
           }
         }
-        const best = bestCoupon(coupons, templates, originalAmount);
+        const best = bestCoupon(coupons, templates, afterPromoAmount);
         if (best) {
           discount = best.discount;
           usedCouponId = best.coupon.id;
         }
       }
 
-      const amounts = computeOrderAmount(
-        resolved.map((r) => ({ price: r.item.price, quantity: r.item.quantity })),
-        discount,
-      );
+      // 实付 = 原价 - 活动优惠 - 券优惠
+      // （活动优惠 ≤ 原价/2，券优惠 ≤ 活动后金额，均天然不为负；兜底不为负）
+      const payableAmount = Math.max(0, afterPromoAmount - discount);
 
       // 生成订单号与取餐码（唯一冲突时重试）
       let orderNo = '';
@@ -319,8 +355,8 @@ export default async function orderRoutes(app: FastifyInstance) {
               .prepare(
                 `INSERT INTO orders
                   (order_no, member_id, store_id, type, status, pickup_code,
-                   original_amount, discount_amount, payable_amount, coupon_id, remark, created_at)
-                 VALUES (?, ?, ?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?, ?)`,
+                   original_amount, promo_discount_amount, discount_amount, payable_amount, coupon_id, remark, created_at)
+                 VALUES (?, ?, ?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?, ?, ?)`,
               )
               .run(
                 orderNo,
@@ -328,9 +364,10 @@ export default async function orderRoutes(app: FastifyInstance) {
                 store_id,
                 type,
                 pickupCode,
-                amounts.originalAmount,
-                amounts.discountAmount,
-                amounts.payableAmount,
+                originalAmount,
+                promoDiscount,
+                discount,
+                payableAmount,
                 usedCouponId,
                 remark ?? null,
                 now,

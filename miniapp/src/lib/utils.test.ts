@@ -11,6 +11,7 @@ import {
   unitPrice,
 } from './utils';
 import { STATUS_TEXT, statusIndex } from './orderStatus';
+import { computePromoDiscount } from './promo';
 
 describe('formatYuan', () => {
   it('分 → ¥xx.xx', () => {
@@ -167,6 +168,30 @@ describe('levelProgress', () => {
   it('黑卡：恒为 100', () => {
     expect(levelProgress(2000, 'black')).toBe(100);
     expect(levelProgress(5000, 'black')).toBe(100);
+  });
+});
+
+describe('computePromoDiscount', () => {
+  const applicable = new Set([1, 2]);
+
+  it('单件不适用', () => {
+    expect(computePromoDiscount([{ productId: 1, price: 2800, quantity: 1 }], applicable)).toBe(0);
+  });
+
+  it('第二杯半价：2 件优惠 = floor(单价 / 2)', () => {
+    expect(computePromoDiscount([{ productId: 1, price: 2800, quantity: 2 }], applicable)).toBe(1400);
+  });
+
+  it('第 2、4 杯半价：4 件优惠 = 2 × floor(单价 / 2)', () => {
+    expect(computePromoDiscount([{ productId: 1, price: 3100, quantity: 4 }], applicable)).toBe(3100);
+  });
+
+  it('半价向下取整到分', () => {
+    expect(computePromoDiscount([{ productId: 1, price: 2801, quantity: 2 }], applicable)).toBe(1400);
+  });
+
+  it('不适用商品不参与', () => {
+    expect(computePromoDiscount([{ productId: 99, price: 2800, quantity: 2 }], applicable)).toBe(0);
   });
 });
 

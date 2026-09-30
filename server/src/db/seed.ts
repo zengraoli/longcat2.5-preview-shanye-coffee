@@ -73,6 +73,11 @@ const COUPON_TEMPLATES = [
   { id: 2, name: '9折优惠券', type: 'discount', threshold: 0, discount_amount: null, discount_rate: 90, valid_days: 14, total_stock: 1000, sort: 2 },
 ];
 
+// 第二杯半价活动：全时段生效，适用全部饮品（drink = 1）
+const PROMOTIONS = [
+  { id: 1, name: '第二杯半价', type: 'second_cup_half', start_at: '2020-01-01T00:00:00.000Z', end_at: '2099-12-31T23:59:59.999Z', enabled: 1, sort: 1 },
+];
+
 /** 写入种子数据（幂等：固定主键 + INSERT OR IGNORE，重复启动不会重复写入）。 */
 export function seed(db: Database) {
   const insertStore = db.prepare(
@@ -98,6 +103,13 @@ export function seed(db: Database) {
     `INSERT OR IGNORE INTO coupon_templates
        (id, name, type, threshold, discount_amount, discount_rate, valid_days, total_stock, sort)
      VALUES (@id, @name, @type, @threshold, @discountAmount, @discountRate, @validDays, @totalStock, @sort)`,
+  );
+  const insertPromotion = db.prepare(
+    `INSERT OR IGNORE INTO promotions (id, name, type, start_at, end_at, enabled, sort)
+     VALUES (@id, @name, @type, @startAt, @endAt, @enabled, @sort)`,
+  );
+  const insertPromotionProduct = db.prepare(
+    'INSERT OR IGNORE INTO promotion_products (promotion_id, product_id) VALUES (?, ?)',
   );
 
   const tx = db.transaction(() => {
@@ -153,6 +165,21 @@ export function seed(db: Database) {
         totalStock: t.total_stock,
         sort: t.sort,
       });
+    }
+    for (const p of PROMOTIONS) {
+      insertPromotion.run({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        startAt: p.start_at,
+        endAt: p.end_at,
+        enabled: p.enabled,
+        sort: p.sort,
+      });
+      // 适用商品：全部饮品
+      for (const prod of PRODUCTS) {
+        if (prod.drink) insertPromotionProduct.run(p.id, prod.id);
+      }
     }
   });
   tx();

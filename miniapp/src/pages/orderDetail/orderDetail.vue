@@ -165,8 +165,12 @@ onPullDownRefresh(() => {
           <text class="amount-label">商品原价</text>
           <text class="amount-value">{{ formatYuan(order.originalAmount) }}</text>
         </view>
+        <view v-if="order.promoDiscountAmount > 0" class="amount-row">
+          <text class="amount-label">活动优惠</text>
+          <text class="amount-value discount">-{{ formatYuan(order.promoDiscountAmount) }}</text>
+        </view>
         <view class="amount-row">
-          <text class="amount-label">优惠</text>
+          <text class="amount-label">优惠券优惠</text>
           <text class="amount-value discount">-{{ formatYuan(order.discountAmount) }}</text>
         </view>
         <view class="amount-row total">

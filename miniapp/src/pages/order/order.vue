@@ -4,8 +4,11 @@ import { api } from '../../lib/api';
 import { useCart } from '../../lib/cart';
 import { currentStoreId, resolveStore } from '../../lib/shop';
 import { formatYuan, specPriceAdjust, specText, unitPrice } from '../../lib/utils';
+import { usePromoProducts } from '../../lib/promoState';
 import type { Category, Product, ProductSpec, Store } from '../../lib/types';
 import ProductArt from '../../components/ProductArt.vue';
+
+const { refreshPromoProducts, isPromoProduct } = usePromoProducts();
 
 const { items: cartItems, totalQuantity, totalAmount, addItem, setQuantity, clear: clearCart } =
   useCart();
@@ -31,6 +34,7 @@ onMounted(async () => {
     categories.value = categoryList;
     products.value = productList;
     stores.value = storeList;
+    refreshPromoProducts();
     activeCategoryId.value = categoryList[0]?.id ?? 0;
     await nextTick();
     measureSections();
@@ -234,7 +238,10 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
               <ProductArt :image="p.image" :name="p.name" />
             </view>
             <view class="product-info">
-              <text class="product-name">{{ p.name }}</text>
+              <view class="product-name-row">
+                <text class="product-name">{{ p.name }}</text>
+                <text v-if="isPromoProduct(p.id)" class="promo-tag">第二杯半价</text>
+              </view>
               <text class="product-desc">{{ p.description }}</text>
               <view class="product-foot">
                 <text class="product-price">{{ formatYuan(p.price) }}</text>
@@ -467,10 +474,23 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
   display: flex;
   flex-direction: column;
 }
+.product-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
 .product-name {
   font-size: 28rpx;
   font-weight: 600;
   color: $brand-900;
+}
+.promo-tag {
+  font-size: 18rpx;
+  color: $caramel-600;
+  background: #faf0e3;
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
+  flex-shrink: 0;
 }
 .product-desc {
   font-size: 22rpx;

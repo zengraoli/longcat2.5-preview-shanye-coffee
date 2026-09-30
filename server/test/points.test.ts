@@ -56,7 +56,8 @@ describe('T07 积分与等级接口', () => {
   });
 
   it('支付后按实付金额积分到账', async () => {
-    // 创建订单：美式中杯 2200 × 3 = 6600，实付 6600 → 66 分
+    // 创建订单：美式中杯 2200 × 3 = 6600
+    // 第二杯半价：第 2 杯半价 → 活动优惠 1100，实付 5500 → 55 分
     const create = await app.inject({
       method: 'POST',
       url: '/api/orders',
@@ -68,7 +69,8 @@ describe('T07 积分与等级接口', () => {
       },
     });
     const order = create.json().data;
-    expect(order.payableAmount).toBe(6600);
+    expect(order.promoDiscountAmount).toBe(1100);
+    expect(order.payableAmount).toBe(5500);
 
     const pay = await app.inject({
       method: 'POST',
@@ -81,13 +83,13 @@ describe('T07 积分与等级接口', () => {
     const member = db.prepare('SELECT points FROM members WHERE id = ?').get(memberId) as {
       points: number;
     };
-    expect(member.points).toBe(66);
+    expect(member.points).toBe(55);
 
     const log = db
       .prepare('SELECT * FROM point_logs WHERE member_id = ? AND order_id = ?')
       .get(memberId, order.id) as { points: number; balance: number; remark: string };
-    expect(log.points).toBe(66);
-    expect(log.balance).toBe(66);
+    expect(log.points).toBe(55);
+    expect(log.balance).toBe(55);
   });
 
   it('积分累计驱动等级自动升级', async () => {

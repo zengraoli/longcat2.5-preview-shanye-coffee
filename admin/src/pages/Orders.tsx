@@ -271,8 +271,16 @@ export default function Orders() {
                   <span className="text-brand-400">原价：</span>
                   {formatYuan(detail.originalAmount)}
                 </div>
+                {detail.promoDiscountAmount > 0 && (
+                  <div>
+                    <span className="text-brand-400">活动优惠：</span>
+                    <span className="text-caramel-600">
+                      -{formatYuan(detail.promoDiscountAmount)}
+                    </span>
+                  </div>
+                )}
                 <div>
-                  <span className="text-brand-400">优惠：</span>
+                  <span className="text-brand-400">优惠券优惠：</span>
                   {formatYuan(detail.discountAmount)}
                 </div>
                 <div>
