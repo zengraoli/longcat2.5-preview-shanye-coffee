@@ -128,8 +128,8 @@ export default function Stores() {
                   {s.openTime} - {s.closeTime}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={s.status === 'open' ? 'success' : 'muted'}>
-                    {s.status === 'open' ? '营业中' : '休息中'}
+                  <Badge variant={s.isOpen ? 'success' : 'muted'}>
+                    {s.isOpen ? '营业中' : '休息中'}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">

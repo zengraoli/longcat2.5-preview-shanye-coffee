@@ -69,8 +69,9 @@ export default function Orders() {
       const params = new URLSearchParams();
       if (storeFilter !== 'all') params.set('store_id', storeFilter);
       if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (start) params.set('start', new Date(start).toISOString());
-      if (end) params.set('end', new Date(end).toISOString());
+      // 日期筛选：发送北京时间 YYYY-MM-DD（server 按此格式解析）
+      if (start) params.set('start', start);
+      if (end) params.set('end', end);
       params.set('page', String(page));
       params.set('page_size', '20');
       const qs = params.toString();

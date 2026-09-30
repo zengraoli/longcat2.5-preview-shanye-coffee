@@ -171,7 +171,7 @@ export default function Coupons() {
                 <TableCell>
                   {t.type === 'full_reduction'
                     ? `减 ${formatYuan(t.discountAmount ?? 0)}`
-                    : `${t.discountRate} 折`}
+                    : `${(t.discountRate ?? 100) / 10} 折`}
                 </TableCell>
                 <TableCell>{t.validDays} 天</TableCell>
                 <TableCell>

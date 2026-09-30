@@ -642,8 +642,17 @@ export default async function orderRoutes(app: FastifyInstance) {
       const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
 
       // 分页
-      const page = Math.max(1, Number(req.query.page) || 1);
-      const pageSize = Math.min(100, Math.max(1, Number(req.query.page_size) || 20));
+      // 分页参数校验：非法值返回 400 而非 500
+      const rawPage = Number(req.query.page);
+      const rawPageSize = Number(req.query.page_size);
+      if (req.query.page !== undefined && (!Number.isFinite(rawPage) || rawPage > 1e6)) {
+        throw err(ErrorCode.VALIDATION, '页码非法');
+      }
+      if (req.query.page_size !== undefined && (!Number.isFinite(rawPageSize) || rawPageSize > 1e6)) {
+        throw err(ErrorCode.VALIDATION, '每页数量非法');
+      }
+      const page = Math.max(1, Math.floor(rawPage) || 1);
+      const pageSize = Math.min(100, Math.max(1, Math.floor(rawPageSize) || 20));
       const total = (
         db.prepare(`SELECT COUNT(*) AS n FROM orders o ${where}`).get(...params) as { n: number }
       ).n;

@@ -260,7 +260,7 @@ export default async function adminRoutes(app: FastifyInstance) {
         throw err(ErrorCode.VALIDATION, '券类型非法');
       }
       const validDays = body.valid_days === undefined ? 30 : Number(body.valid_days);
-      if (!Number.isInteger(validDays) || validDays <= 0) {
+      if (!Number.isInteger(validDays) || validDays <= 0 || validDays > 3650) {
         throw err(ErrorCode.VALIDATION, '有效期非法');
       }
       const totalStock = body.total_stock === undefined ? 0 : Number(body.total_stock);
@@ -414,10 +414,12 @@ export default async function adminRoutes(app: FastifyInstance) {
       }
       // store_id 类型与存在性校验
       if (store_id !== undefined && store_id !== null) {
-        if (!Number.isInteger(Number(store_id)) || Number(store_id) <= 0) {
+        // store_id 仅接受数字或数字字符串，布尔等返回 400
+        const sid = typeof store_id === 'boolean' ? NaN : Number(store_id);
+        if (!Number.isInteger(sid) || sid <= 0) {
           throw err(ErrorCode.VALIDATION, '门店 ID 非法');
         }
-        const storeExists = db.prepare('SELECT id FROM stores WHERE id = ?').get(Number(store_id));
+        const storeExists = db.prepare('SELECT id FROM stores WHERE id = ?').get(sid);
         if (!storeExists) throw err(ErrorCode.STORE_NOT_FOUND, '门店不存在', 404);
       }
       const effectiveRole = role ?? a.role;

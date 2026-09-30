@@ -43,8 +43,9 @@ function toTemplate(r: TemplateRow): CouponTemplate {
   };
 }
 
-function couponView(c: MemberCouponRow, t: TemplateRow, now: Date) {
-  const usable = isCouponUsable(c, now);
+function couponView(c: MemberCouponRow, t: TemplateRow & { enabled?: number }, now: Date) {
+  // 可用 = 未使用 + 未过期 + 模板启用
+  const usable = isCouponUsable(c, now) && (t.enabled === undefined || t.enabled === 1);
   return {
     id: c.id,
     templateId: t.id,
@@ -138,7 +139,8 @@ export default async function couponRoutes(app: FastifyInstance) {
       const now = new Date();
       const rows = db
         .prepare(
-          `SELECT c.*, t.name, t.type, t.threshold, t.discount_amount, t.discount_rate, t.valid_days
+          `SELECT c.id AS coupon_id, c.member_id, c.template_id, c.status, c.claimed_at, c.expires_at, c.used_at, c.order_id,
+                  t.id, t.name, t.type, t.threshold, t.discount_amount, t.discount_rate, t.valid_days, t.enabled
            FROM member_coupons c JOIN coupon_templates t ON t.id = c.template_id
            WHERE c.member_id = ? ORDER BY c.claimed_at DESC`,
         )
@@ -150,11 +152,13 @@ export default async function couponRoutes(app: FastifyInstance) {
          WHERE id = ? AND status = 'unused' AND expires_at <= ?`,
       );
       const views = rows.map((r) => {
+        // couponView 需要 c.id 为券 id，t.id 为模板 id
+        const couponRow = { ...r, id: r.coupon_id } as MemberCouponRow & TemplateRow;
         if (r.status === 'unused' && new Date(r.expires_at).getTime() <= now.getTime()) {
-          markExpired.run(r.id, now.toISOString());
-          return couponView({ ...r, status: 'expired' }, r, now);
+          markExpired.run(r.coupon_id, now.toISOString());
+          return couponView({ ...couponRow, status: 'expired' }, r, now);
         }
-        return couponView(r, r, now);
+        return couponView(couponRow, r, now);
       });
       ok(reply, views);
     },
