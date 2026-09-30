@@ -18,6 +18,14 @@ interface ProductRow {
   sold_out: number;
 }
 
+/** 查询商品在指定门店的售罄状态（store_products 表）。 */
+function isProductSoldOutAtStore(db: ReturnType<typeof getDb>, productId: number, storeId: number): boolean {
+  const row = db
+    .prepare('SELECT sold_out FROM store_products WHERE product_id = ? AND store_id = ?')
+    .get(productId, storeId) as { sold_out: number } | undefined;
+  return row?.sold_out === 1;
+}
+
 interface OrderItemBody {
   product_id?: number;
   temperature?: string;
@@ -105,9 +113,7 @@ function resolveItem(item: OrderItemBody) {
   if (product.status !== 'on') {
     throw err(ErrorCode.PRODUCT_OFF_SHELF, `商品「${product.name}」已下架`);
   }
-  if (product.sold_out === 1) {
-    throw err(ErrorCode.PRODUCT_SOLD_OUT, `商品「${product.name}」已售罄`);
-  }
+  // 售罄状态在订单创建时按门店统一检查（store_products 表）
 
   let cup: string | null = null;
   let temperature: string | null = null;
@@ -308,6 +314,15 @@ export default async function orderRoutes(app: FastifyInstance) {
 
       // 解析商品与规格，计算原价
       const resolved = items.map(resolveItem);
+      // 按门店检查售罄（store_products 表）
+      for (const r of resolved) {
+        const soldOut = db
+          .prepare('SELECT sold_out FROM store_products WHERE product_id = ? AND store_id = ?')
+          .get(r.item.product_id, store_id) as { sold_out: number } | undefined;
+        if (soldOut?.sold_out === 1) {
+          throw err(ErrorCode.PRODUCT_SOLD_OUT, `商品「${r.item.product_name}」已售罄`);
+        }
+      }
       const originalAmount = resolved.reduce((s, r) => s + r.item.price * r.item.quantity, 0);
 
       // 第二杯半价：先算活动价（同一适用商品第 2、4… 杯半价）

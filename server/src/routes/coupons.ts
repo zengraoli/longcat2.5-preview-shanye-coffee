@@ -153,9 +153,10 @@ export default async function couponRoutes(app: FastifyInstance) {
       );
       const views = rows.map((r) => {
         // couponView 需要 c.id 为券 id，t.id 为模板 id
-        const couponRow = { ...r, id: r.coupon_id } as MemberCouponRow & TemplateRow;
+        const couponId = (r as unknown as { coupon_id: number }).coupon_id;
+        const couponRow = { ...r, id: couponId } as unknown as MemberCouponRow & TemplateRow;
         if (r.status === 'unused' && new Date(r.expires_at).getTime() <= now.getTime()) {
-          markExpired.run(r.coupon_id, now.toISOString());
+          markExpired.run(couponId, now.toISOString());
           return couponView({ ...couponRow, status: 'expired' }, r, now);
         }
         return couponView(couponRow, r, now);

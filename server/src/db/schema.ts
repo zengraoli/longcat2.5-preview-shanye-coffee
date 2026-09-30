@@ -120,6 +120,13 @@ const STATEMENTS: string[] = [
     cancelled_at TEXT
   )`,
 
+  `CREATE TABLE IF NOT EXISTS store_products (
+    store_id INTEGER NOT NULL REFERENCES stores(id),
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    sold_out INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (store_id, product_id)
+  )`,
+
   `CREATE TABLE IF NOT EXISTS promotions (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,

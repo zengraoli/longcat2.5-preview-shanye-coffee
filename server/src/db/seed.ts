@@ -108,6 +108,9 @@ export function seed(db: Database) {
     `INSERT OR IGNORE INTO promotions (id, name, type, start_at, end_at, enabled, sort)
      VALUES (@id, @name, @type, @startAt, @endAt, @enabled, @sort)`,
   );
+  const insertStoreProduct = db.prepare(
+    'INSERT OR IGNORE INTO store_products (store_id, product_id, sold_out) VALUES (?, ?, 0)',
+  );
   const insertPromotionProduct = db.prepare(
     'INSERT OR IGNORE INTO promotion_products (promotion_id, product_id) VALUES (?, ?)',
   );
@@ -165,6 +168,12 @@ export function seed(db: Database) {
         totalStock: t.total_stock,
         sort: t.sort,
       });
+    }
+    // 门店商品：默认全部商品在所有门店可用
+    for (const s of STORES) {
+      for (const prod of PRODUCTS) {
+        insertStoreProduct.run(s.id, prod.id);
+      }
     }
     for (const p of PROMOTIONS) {
       insertPromotion.run({

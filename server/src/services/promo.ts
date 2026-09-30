@@ -37,7 +37,8 @@ export function computePromoDiscount(
     // 升序排序：每两件中价高者半价，与顺序无关
     prices.sort((a, b) => a - b);
     for (let i = 1; i < prices.length; i += 2) {
-      discount += Math.floor(prices[i] / 2);
+      const price = prices[i];
+      if (price !== undefined) discount += Math.floor(price / 2);
     }
   }
   return discount;

@@ -114,7 +114,7 @@ export default async function productRoutes(app: FastifyInstance) {
   });
 
   // 用户端商品列表：仅上架商品；售罄商品保留并标记 soldOut
-  app.get<{ Querystring: { category_id?: string } }>(
+  app.get<{ Querystring: { category_id?: string; store_id?: string } }>(
     '/api/products',
     {
       schema: {
@@ -127,6 +127,7 @@ export default async function productRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const db = getDb();
       const categoryId = req.query.category_id;
+      const storeId = req.query.store_id !== undefined ? Number(req.query.store_id) : undefined;
       let rows: ProductRow[];
       if (categoryId !== undefined) {
         const cid = Number(categoryId);
@@ -163,7 +164,16 @@ export default async function productRoutes(app: FastifyInstance) {
           description: p.description,
           price: p.price,
           image: p.image,
-          soldOut: p.sold_out === 1,
+          // 售罄状态：优先按门店（store_products），无则回退全局
+          soldOut: (() => {
+            if (storeId !== undefined && storeId > 0) {
+              const sp = db
+                .prepare('SELECT sold_out FROM store_products WHERE product_id = ? AND store_id = ?')
+                .get(p.id, storeId) as { sold_out: number } | undefined;
+              if (sp) return sp.sold_out === 1;
+            }
+            return p.sold_out === 1;
+          })(),
           specs: specsByProduct.get(p.id) ?? [],
         })),
       );
@@ -449,10 +459,31 @@ export default async function productRoutes(app: FastifyInstance) {
         throw err(ErrorCode.VALIDATION, '商品 ID 非法');
       }
       const { sold_out } = req.body ?? {};
-      const info = getDb()
-        .prepare('UPDATE products SET sold_out = ? WHERE id = ?')
-        .run(sold_out, id);
-      if (info.changes === 0) throw err(ErrorCode.PRODUCT_NOT_FOUND, '商品不存在', 404);
+      const db = getDb();
+      // 售罄按门店设置（store_products 表）；店员仅本门店
+      const user = req.user!;
+      let storeId = 0;
+      if (user.type === 'admin' && user.role === 'staff') {
+        storeId = user.storeId ?? 0;
+      } else {
+        // 管理员：应用到所有门店
+        const stores = db.prepare('SELECT id FROM stores').all() as { id: number }[];
+        const tx = db.transaction(() => {
+          for (const s of stores) {
+            db.prepare(
+              'INSERT OR REPLACE INTO store_products (store_id, product_id, sold_out) VALUES (?, ?, ?)',
+            ).run(s.id, id, sold_out);
+          }
+        });
+        tx();
+        ok(reply, { id, soldOut: sold_out === 1 });
+        return;
+      }
+      if (storeId > 0) {
+        db.prepare(
+          'INSERT OR REPLACE INTO store_products (store_id, product_id, sold_out) VALUES (?, ?, ?)',
+        ).run(storeId, id, sold_out);
+      }
       ok(reply, { id, soldOut: sold_out === 1 });
     },
   );
