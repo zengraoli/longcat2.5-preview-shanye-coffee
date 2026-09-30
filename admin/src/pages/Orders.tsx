@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, watch } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useWatch } from '../lib/useWatch';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { formatYuan, formatBeijing } from '../lib/utils';
@@ -86,7 +87,7 @@ export default function Orders() {
   }, [storeFilter, statusFilter, start, end, page]);
 
   // 切换筛选条件时页码回到第 1 页
-  watch([storeFilter, statusFilter, start, end], () => {
+  useWatch([storeFilter, statusFilter, start, end], () => {
     setPage(1);
   });
 
