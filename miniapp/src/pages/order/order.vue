@@ -258,7 +258,11 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
     <!-- 底部购物车浮层 -->
     <view class="cart-bar" @tap="toggleCart">
       <view class="cart-icon-wrap">
-        <text class="cart-icon">🛒</text>
+        <svg viewBox="0 0 24 24" class="cart-icon" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="21" r="1" />
+          <circle cx="20" cy="21" r="1" />
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+        </svg>
         <text v-if="totalQuantity > 0" class="cart-badge">
           {{ totalQuantity }}
         </text>
@@ -366,6 +370,7 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
         <view class="popup-foot">
           <text class="popup-total">
             {{ specSummary }} · {{ formatYuan(specUnitPrice) }}
+            <template v-if="specQuantity > 1"> × {{ specQuantity }} = {{ formatYuan(specUnitPrice * specQuantity) }}</template>
           </text>
           <text class="popup-checkout" @tap="confirmSpec">加入购物车</text>
         </view>
@@ -443,7 +448,7 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
 /* 右侧商品 */
 .product-list {
   flex: 1;
-  padding: 16rpx 20rpx 120rpx;
+  padding: 16rpx 20rpx 180rpx;
 }
 .section-title {
   font-size: 26rpx;
@@ -549,7 +554,9 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
   justify-content: center;
 }
 .cart-icon {
-  font-size: 36rpx;
+  width: 40rpx;
+  height: 40rpx;
+  display: block;
 }
 .cart-badge {
   position: absolute;

@@ -27,8 +27,9 @@ npm test                         # 单元测试（vitest）
 
 ## 接口基地址配置
 
-- 小程序端：`src/lib/api.ts` 中 `API_BASE`，默认 `http://127.0.0.1:3300`，可用环境变量 `VITE_API_BASE` 覆盖。
-- H5 调试：`vite.config.ts` 中 `server.port` 为 5303，接口直连 `API_BASE`。
+- 小程序端（mp-weixin）：`src/lib/api.ts` 中 `API_BASE`，默认 `http://127.0.0.1:3300`，可用环境变量 `VITE_API_BASE` 覆盖。
+- H5 调试：`npm run dev:h5` 启动在 5303，`vite.config.ts` 配置了 `/api` 代理到 `http://127.0.0.1:3300`，无需设置 `VITE_API_BASE`。需先启动 server（端口 3300）。
+- 请求用 `uni.request`、存储用 `uni.getStorageSync`，H5 与小程序均可用（不依赖 `localStorage` / `fetch`）。
 
 ## 默认账号
 

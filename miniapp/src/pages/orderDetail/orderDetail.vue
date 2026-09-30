@@ -97,8 +97,8 @@ onPullDownRefresh(() => {
     </view>
 
     <block v-else>
-      <!-- 取餐码 -->
-      <view v-if="order.type === 'pickup' && order.pickupCode" class="pickup-code">
+      <!-- 取餐码：仅自提且未取消的订单显示 -->
+      <view v-if="order.type === 'pickup' && order.pickupCode && order.status !== 'cancelled'" class="pickup-code">
         <text class="pickup-label">取餐码</text>
         <text class="pickup-value">{{ order.pickupCode }}</text>
         <text class="pickup-hint">到店出示此码取餐</text>
