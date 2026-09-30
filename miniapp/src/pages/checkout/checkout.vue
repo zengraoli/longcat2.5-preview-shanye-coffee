@@ -31,7 +31,12 @@ const originalAmount = computed(() =>
 /** 第二杯半价优惠（分），与 server 计算保持一致 */
 const promoDiscount = computed(() =>
   computePromoDiscount(
-    cartItems.map((i) => ({ productId: i.productId, price: i.price, quantity: i.quantity })),
+    cartItems.map((i) => ({
+      productId: i.productId,
+      price: i.price,
+      quantity: i.quantity,
+      specKey: `${i.cup ?? ''}/${i.temperature ?? ''}/${i.sugar ?? ''}`,
+    })),
     promoProductIds.value,
   ),
 );
@@ -129,6 +134,9 @@ async function submitOrder() {
       id: number;
       status: string;
       payableAmount: number;
+      originalAmount: number;
+      promoDiscountAmount: number;
+      discountAmount: number;
     }>('/api/orders', {
       store_id: store.id,
       type: type.value,
@@ -147,6 +155,23 @@ async function submitOrder() {
       coupon_id: couponId === null ? 0 : couponId,
       remark: remark.value || undefined,
     });
+    // 校验服务端金额与客户端一致（防止活动/券在确认页打开期间变化）
+    if (
+      order.payableAmount !== payableAmount.value ||
+      order.originalAmount !== originalAmount.value ||
+      order.promoDiscountAmount !== promoDiscount.value ||
+      order.discountAmount !== discountAmount.value
+    ) {
+      uni.showModal({
+        title: '金额已变化',
+        content: '活动或优惠券状态已变化，请返回确认订单页重新确认金额。',
+        showCancel: false,
+        success: () => {
+          uni.navigateBack();
+        },
+      });
+      return;
+    }
     // 模拟支付：创建后立即支付
     await api.post(`/api/orders/${order.id}/pay`);
     clearCart();

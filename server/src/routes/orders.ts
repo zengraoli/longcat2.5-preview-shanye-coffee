@@ -8,6 +8,7 @@ import { bestCoupon, isCouponUsable, type CouponTemplate, type MemberCoupon } fr
 import { canAdvance, isBeforePayment, type OrderStatus } from '../services/order.js';
 import { computePromoDiscount } from '../services/promo.js';
 import { pointsForAmount } from '../services/points.js';
+import { isOpenNow } from '../services/store.js';
 
 interface ProductRow {
   id: number;
@@ -159,9 +160,10 @@ function genOrderNo(): string {
 }
 
 /** 生成 4 位取餐码，确保与在制订单不重复。 */
+/** 生成 6 位取餐码，确保与在制订单不重复（4 位空间在大量订单下会碰撞）。 */
 function genPickupCode(db: ReturnType<typeof getDb>): string {
-  for (let i = 0; i < 20; i++) {
-    const code = String(randomInt(0, 10000)).padStart(4, '0');
+  for (let i = 0; i < 50; i++) {
+    const code = String(randomInt(0, 1000000)).padStart(6, '0');
     const exists = db
       .prepare(
         "SELECT id FROM orders WHERE pickup_code = ? AND status IN ('paid','making','ready')",
@@ -169,25 +171,26 @@ function genPickupCode(db: ReturnType<typeof getDb>): string {
       .get(code);
     if (!exists) return code;
   }
-  return String(randomInt(0, 10000)).padStart(4, '0');
+  // 极端情况下回退到时间戳后缀，保证唯一
+  return `${Date.now().toString(36).toUpperCase()}${randomInt(10, 99)}`.slice(-6);
 }
 
-/** 加载当前生效的第二杯半价活动适用商品集合；无活动返回 null。 */
+/** 加载当前生效的所有第二杯半价活动适用商品集合；无活动返回 null。 */
 function activePromoProductIds(db: ReturnType<typeof getDb>): Set<number> | null {
   const promo = db
     .prepare(
-      "SELECT id, name, type, start_at, end_at, enabled FROM promotions WHERE type = 'second_cup_half' AND enabled = 1",
+      "SELECT id, start_at, end_at FROM promotions WHERE type = 'second_cup_half' AND enabled = 1",
     )
-    .all();
-  const now = new Date();
-  const active = (promo as { id: number; start_at: string; end_at: string }[]).find((p) => {
-    const t = now.getTime();
-    return t >= new Date(p.start_at).getTime() && t <= new Date(p.end_at).getTime();
-  });
-  if (!active) return null;
+    .all() as { id: number; start_at: string; end_at: string }[];
+  const now = new Date().getTime();
+  const activeIds = promo
+    .filter((p) => now >= new Date(p.start_at).getTime() && now <= new Date(p.end_at).getTime())
+    .map((p) => p.id);
+  if (activeIds.length === 0) return null;
+  const placeholders = activeIds.map(() => '?').join(',');
   const rows = db
-    .prepare('SELECT product_id FROM promotion_products WHERE promotion_id = ?')
-    .all(active.id) as { product_id: number }[];
+    .prepare(`SELECT product_id FROM promotion_products WHERE promotion_id IN (${placeholders})`)
+    .all(...activeIds) as { product_id: number }[];
   return new Set(rows.map((r) => r.product_id));
 }
 
@@ -222,13 +225,26 @@ function orderView(o: OrderRow, items: OrderItemRow[]) {
 }
 
 /** 北京时间日期（YYYY-MM-DD）→ UTC ISO 范围起点。 */
+/** 校验北京时间日期（YYYY-MM-DD），非法时抛参数错误。 */
+function parseBjDay(dateStr: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    throw err(ErrorCode.VALIDATION, '日期格式非法，应为 YYYY-MM-DD');
+  }
+  const d = new Date(`${dateStr}T00:00:00+08:00`);
+  if (Number.isNaN(d.getTime())) {
+    throw err(ErrorCode.VALIDATION, '日期非法');
+  }
+  return d;
+}
+
 function bjDayStart(dateStr: string): string {
-  return new Date(`${dateStr}T00:00:00+08:00`).toISOString();
+  return parseBjDay(dateStr).toISOString();
 }
 
 /** 北京时间日期（YYYY-MM-DD）→ UTC ISO 范围终点（含全天）。 */
 function bjDayEnd(dateStr: string): string {
-  return new Date(`${dateStr}T23:59:59.999+08:00`).toISOString();
+  const d = parseBjDay(dateStr);
+  return new Date(d.getTime() + 86400_000 - 1).toISOString();
 }
 
 /** 订单路由：创建、支付、取消、查询、店员状态推进。 */
@@ -282,10 +298,11 @@ export default async function orderRoutes(app: FastifyInstance) {
       }
       const db = getDb();
       const store = db.prepare('SELECT * FROM stores WHERE id = ?').get(store_id) as
-        | { id: number; status: string }
+        | { id: number; status: string; open_time: string; close_time: string }
         | undefined;
       if (!store) throw err(ErrorCode.STORE_NOT_FOUND, '门店不存在', 404);
-      if (store.status !== 'open') {
+      // 营业状态综合考虑手动状态与营业时间（isOpen）
+      if (!isOpenNow(store.status, store.open_time, store.close_time)) {
         throw err(ErrorCode.STORE_CLOSED, '门店休息中，暂不可下单', 400);
       }
 
@@ -301,6 +318,7 @@ export default async function orderRoutes(app: FastifyInstance) {
               productId: r.item.product_id,
               price: r.item.price,
               quantity: r.item.quantity,
+              specKey: `${r.item.cup ?? ''}/${r.item.temperature ?? ''}/${r.item.sugar ?? ''}`,
             })),
             promoProductIds,
           )
@@ -557,11 +575,11 @@ export default async function orderRoutes(app: FastifyInstance) {
       const now = new Date().toISOString();
       const tx = db.transaction(() => {
         db.prepare("UPDATE orders SET status = 'cancelled', cancelled_at = ? WHERE id = ?").run(now, id);
-        // 释放优惠券
+        // 释放优惠券（清除使用时间与订单关联，恢复为未使用）
         if (order.coupon_id) {
-          db.prepare("UPDATE member_coupons SET status = 'unused', order_id = NULL WHERE id = ?").run(
-            order.coupon_id,
-          );
+          db.prepare(
+            "UPDATE member_coupons SET status = 'unused', order_id = NULL, used_at = NULL WHERE id = ?",
+          ).run(order.coupon_id);
         }
       });
       tx();

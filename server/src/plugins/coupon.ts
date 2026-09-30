@@ -29,6 +29,9 @@ export async function registerCouponDecorator(app: FastifyInstance) {
       .prepare('SELECT * FROM coupon_templates WHERE id = ?')
       .get(c.template_id) as CouponTemplate | undefined;
     if (!t) throw err(ErrorCode.COUPON_NOT_FOUND, '优惠券不存在', 404);
+    if (!t.enabled) {
+      throw err(ErrorCode.COUPON_NOT_USABLE, '优惠券已停用', 400);
+    }
       if (!isCouponUsable(c)) {
         throw err(ErrorCode.COUPON_EXPIRED, '优惠券已过期或已使用', 400);
       }

@@ -73,9 +73,9 @@ const COUPON_TEMPLATES = [
   { id: 2, name: '9折优惠券', type: 'discount', threshold: 0, discount_amount: null, discount_rate: 90, valid_days: 14, total_stock: 1000, sort: 2 },
 ];
 
-// 第二杯半价活动：全时段生效，适用全部饮品（drink = 1）
+// 第二杯半价活动：默认停用，由后台按需启用（适用全部饮品）
 const PROMOTIONS = [
-  { id: 1, name: '第二杯半价', type: 'second_cup_half', start_at: '2020-01-01T00:00:00.000Z', end_at: '2099-12-31T23:59:59.999Z', enabled: 1, sort: 1 },
+  { id: 1, name: '第二杯半价', type: 'second_cup_half', start_at: '2020-01-01T00:00:00.000Z', end_at: '2099-12-31T23:59:59.999Z', enabled: 0, sort: 1 },
 ];
 
 /** 写入种子数据（幂等：固定主键 + INSERT OR IGNORE，重复启动不会重复写入）。 */

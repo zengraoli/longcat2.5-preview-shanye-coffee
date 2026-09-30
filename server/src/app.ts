@@ -2,6 +2,16 @@ import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { AppError, ErrorCode } from './lib/errors.js';
+
+/** 将 Fastify 英文校验错误转为中文提示。 */
+function translateValidationError(message: string): string {
+  if (!message) return '请求错误';
+  // body/xxx must be ... → 参数格式错误
+  if (/must be|must match|must have|is required|Body is not valid|Unsupported Media Type|too large/i.test(message)) {
+    return '请求参数格式错误';
+  }
+  return '请求参数错误';
+}
 import { initDb } from './db/index.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerCouponDecorator } from './plugins/coupon.js';
@@ -49,7 +59,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       return reply.status(status).send({
         code: ErrorCode.VALIDATION,
         data: null,
-        message: error.message || '请求错误',
+        message: translateValidationError(error.message),
       });
     }
     request.log.error({ err: error }, '未处理异常');

@@ -52,8 +52,18 @@ export default async function statsRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const db = getDb();
       const user = req.user!;
-      // 店员仅统计本门店
-      const storeFilter = user.type === 'admin' && user.role === 'staff' ? user.storeId : null;
+      // 店员仅统计本门店；未分配门店的店员无数据
+      const isStaff = user.type === 'admin' && user.role === 'staff';
+      const storeFilter = isStaff ? user.storeId : null;
+      if (isStaff && !storeFilter) {
+        ok(reply, {
+          today: { revenue: 0, orders: 0, avg: 0, newMembers: 0 },
+          trend7d: [],
+          topProducts: [],
+          latestOrders: [],
+        });
+        return;
+      }
       const storeCond = storeFilter ? 'AND store_id = ?' : '';
       const storeParams = storeFilter ? [storeFilter] : [];
 

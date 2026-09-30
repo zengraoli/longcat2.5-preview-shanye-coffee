@@ -107,6 +107,12 @@ export default async function adminRoutes(app: FastifyInstance) {
       if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
         throw err(ErrorCode.VALIDATION, '门店名称非法');
       }
+      if (address !== undefined && (typeof address !== 'string' || address.trim() === '')) {
+        throw err(ErrorCode.VALIDATION, '门店地址非法');
+      }
+      if (phone !== undefined && typeof phone !== 'string') {
+        throw err(ErrorCode.VALIDATION, '门店电话非法');
+      }
       if (status !== undefined && status !== 'open' && status !== 'closed') {
         throw err(ErrorCode.VALIDATION, '营业状态非法');
       }
@@ -247,11 +253,19 @@ export default async function adminRoutes(app: FastifyInstance) {
       const body = req.body ?? {};
       const name = body.name;
       const type = body.type;
-      if (!name || typeof name !== 'string') {
+      if (typeof name !== 'string' || name.trim() === '') {
         throw err(ErrorCode.VALIDATION, '名称非法');
       }
       if (type !== 'full_reduction' && type !== 'discount') {
         throw err(ErrorCode.VALIDATION, '券类型非法');
+      }
+      const validDays = body.valid_days === undefined ? 30 : Number(body.valid_days);
+      if (!Number.isInteger(validDays) || validDays <= 0) {
+        throw err(ErrorCode.VALIDATION, '有效期非法');
+      }
+      const totalStock = body.total_stock === undefined ? 0 : Number(body.total_stock);
+      if (!Number.isInteger(totalStock) || totalStock < 0) {
+        throw err(ErrorCode.VALIDATION, '库存非法');
       }
       if (type === 'full_reduction') {
         const threshold = Number(body.threshold);
@@ -261,6 +275,9 @@ export default async function adminRoutes(app: FastifyInstance) {
         }
         if (!Number.isInteger(discountAmount) || discountAmount <= 0) {
           throw err(ErrorCode.VALIDATION, '满减金额非法');
+        }
+        if (discountAmount >= threshold) {
+          throw err(ErrorCode.VALIDATION, '满减金额不能大于等于门槛');
         }
       } else {
         const discountRate = Number(body.discount_rate);
@@ -278,13 +295,13 @@ export default async function adminRoutes(app: FastifyInstance) {
            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
         )
         .run(
-          name,
+          name.trim(),
           type,
           type === 'full_reduction' ? Number(body.threshold) : 0,
           type === 'full_reduction' ? Number(body.discount_amount) : null,
           type === 'discount' ? Number(body.discount_rate) : null,
-          Number(body.valid_days) || 30,
-          Number(body.total_stock) || 0,
+          validDays,
+          totalStock,
           maxSort + 1,
         );
       const row = db
@@ -323,22 +340,29 @@ export default async function adminRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const body = req.body ?? {};
       const { username, password, name, role, store_id } = body;
-      if (!username || typeof username !== 'string') {
+      if (typeof username !== 'string' || username.trim() === '' || username.length > 64) {
         throw err(ErrorCode.VALIDATION, '账号非法');
       }
-      if (!password || typeof password !== 'string' || password.length < 6) {
+      if (typeof password !== 'string' || password.length < 6) {
         throw err(ErrorCode.VALIDATION, '密码至少 6 位');
       }
-      if (!name || typeof name !== 'string') {
+      if (typeof name !== 'string' || name.trim() === '') {
         throw err(ErrorCode.VALIDATION, '姓名非法');
       }
       if (role !== 'admin' && role !== 'staff') {
         throw err(ErrorCode.VALIDATION, '角色非法');
       }
+      // 店员必须分配门店
+      if (role === 'staff' && (store_id === undefined || store_id === null)) {
+        throw err(ErrorCode.VALIDATION, '店员必须分配门店');
+      }
       const db = getDb();
-      const exists = db.prepare('SELECT id FROM admins WHERE username = ?').get(username);
+      const exists = db.prepare('SELECT id FROM admins WHERE username = ?').get(username.trim());
       if (exists) throw err(ErrorCode.CONFLICT, '账号已存在', 409);
       if (role === 'staff' && store_id != null) {
+        if (!Number.isInteger(Number(store_id)) || Number(store_id) <= 0) {
+          throw err(ErrorCode.VALIDATION, '门店 ID 非法');
+        }
         const store = db.prepare('SELECT id FROM stores WHERE id = ?').get(Number(store_id));
         if (!store) throw err(ErrorCode.VALIDATION, '门店不存在');
       }
@@ -383,10 +407,35 @@ export default async function adminRoutes(app: FastifyInstance) {
       if (password !== undefined && (typeof password !== 'string' || password.length < 6)) {
         throw err(ErrorCode.VALIDATION, '密码至少 6 位');
       }
+      // store_id 类型与存在性校验
+      if (store_id !== undefined && store_id !== null) {
+        if (!Number.isInteger(Number(store_id)) || Number(store_id) <= 0) {
+          throw err(ErrorCode.VALIDATION, '门店 ID 非法');
+        }
+        const storeExists = db.prepare('SELECT id FROM stores WHERE id = ?').get(Number(store_id));
+        if (!storeExists) throw err(ErrorCode.STORE_NOT_FOUND, '门店不存在', 404);
+      }
       const effectiveRole = role ?? a.role;
+      // 店员必须分配门店
+      if (effectiveRole === 'staff' && (store_id !== undefined || role !== undefined) && store_id == null) {
+        throw err(ErrorCode.VALIDATION, '店员必须分配门店');
+      }
       const effectiveStoreId =
         effectiveRole === 'staff' ? (store_id !== undefined ? store_id : a.store_id) : null;
-      const effectiveEnabled = enabled === undefined ? a.enabled : enabled ? 1 : 0;
+      // enabled 仅接受布尔或 0/1，字符串 "false" 不当作停用
+      const effectiveEnabled = enabled === undefined ? a.enabled : enabled === true || enabled === 1 ? 1 : 0;
+
+      // 不能把唯一的管理员改成店员（之后系统没有管理员）
+      if (a.role === 'admin' && effectiveRole === 'staff') {
+        const otherAdmins = (
+          db
+            .prepare("SELECT COUNT(*) AS n FROM admins WHERE role = 'admin' AND enabled = 1 AND id != ?")
+            .get(id) as { n: number }
+        ).n;
+        if (otherAdmins === 0) {
+          throw err(ErrorCode.FORBIDDEN, '无权限：不能把唯一的管理员改成店员', 403);
+        }
+      }
 
       // 不能停用自己的账号
       if (a.id === req.user!.id && effectiveEnabled === 0) {

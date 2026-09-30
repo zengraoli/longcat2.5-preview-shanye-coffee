@@ -12,26 +12,30 @@ export interface PromoItemInput {
   /** 单价（含规格加价，分） */
   price: number;
   quantity: number;
+  /** 规格标识（杯型/温度/糖度），同规格才参与“第二杯”配对 */
+  specKey?: string;
 }
 
 /**
  * 计算第二杯半价优惠金额（分）。
- * 仅统计适用商品；每两件为一组，每组第二件半价。
+ * 仅统计适用商品；同一商品同一规格每两件为一组，每组第二件半价。
+ * 按规格分组，与商品顺序无关，避免不同规格混买时多减。
  */
 export function computePromoDiscount(
   items: PromoItemInput[],
   applicableProductIds: Set<number>,
 ): number {
   let discount = 0;
-  // 按商品分组统计件数，同商品同单价合并计算
-  const byProduct = new Map<number, { price: number; quantity: number }>();
+  // 按（商品 + 规格）分组统计件数
+  const bySpec = new Map<string, { price: number; quantity: number }>();
   for (const it of items) {
     if (!applicableProductIds.has(it.productId)) continue;
-    const group = byProduct.get(it.productId) ?? { price: it.price, quantity: 0 };
+    const key = `${it.productId}:${it.specKey ?? ''}`;
+    const group = bySpec.get(key) ?? { price: it.price, quantity: 0 };
     group.quantity += it.quantity;
-    byProduct.set(it.productId, group);
+    bySpec.set(key, group);
   }
-  for (const { price, quantity } of byProduct.values()) {
+  for (const { price, quantity } of bySpec.values()) {
     if (quantity < 2) continue;
     const halfCount = Math.floor(quantity / 2);
     discount += halfCount * Math.floor(price / 2);

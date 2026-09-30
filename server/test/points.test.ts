@@ -42,6 +42,9 @@ describe('T07 积分与等级接口', () => {
 
   beforeAll(async () => {
     app = await buildApp({ dbFile: ':memory:', logger: false });
+    // 启用种子第二杯半价活动（默认停用）
+    const { getDb } = await import('../src/db/index.js');
+    getDb().prepare('UPDATE promotions SET enabled = 1').run();
     const login = await app.inject({
       method: 'POST',
       url: '/api/member/login',

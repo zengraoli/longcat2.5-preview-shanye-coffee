@@ -47,16 +47,18 @@ const emptyForm: FormState = {
   productIds: [],
 };
 
-/** 后端 UTC ISO8601 → datetime-local 输入框格式 */
+/** 后端 UTC ISO8601 → datetime-local 输入框格式（按北京时间显示，与浏览器时区无关） */
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
+  // 转为北京时间分量
+  const bj = new Date(d.getTime() + 8 * 3600 * 1000);
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())}T${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}`;
 }
 
-/** datetime-local 输入框 → 北京时间 UTC ISO8601 */
+/** datetime-local 输入框（北京时间）→ UTC ISO8601 */
 function fromLocalInput(value: string): string {
-  // 输入框为本地时间，按北京时间（UTC+8）解释后转 UTC
+  // 输入框为北京时间，按 UTC+8 解释后转 UTC
   return new Date(`${value}:00+08:00`).toISOString();
 }
 

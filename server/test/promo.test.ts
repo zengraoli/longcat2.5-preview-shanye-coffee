@@ -43,6 +43,29 @@ describe('第二杯半价计价', () => {
     );
     expect(d).toBe(1400);
   });
+
+  it('不同规格分开配对：中杯×1 + 大杯×1 无优惠', () => {
+    const d = computePromoDiscount(
+      [
+        { productId: 1, price: 2800, quantity: 1, specKey: 'medium/ice/standard' },
+        { productId: 1, price: 3100, quantity: 1, specKey: 'large/ice/standard' },
+      ],
+      applicable,
+    );
+    expect(d).toBe(0);
+  });
+
+  it('不同规格混买与顺序无关：中杯×1 + 大杯×3 仅中杯第 2 杯半价', () => {
+    const items = [
+      { productId: 1, price: 2800, quantity: 1, specKey: 'medium/ice/standard' },
+      { productId: 1, price: 3100, quantity: 3, specKey: 'large/ice/standard' },
+    ];
+    const forward = computePromoDiscount(items, applicable);
+    const reverse = computePromoDiscount([...items].reverse(), applicable);
+    // 中杯 1 件无优惠；大杯 3 件 → 第 2 杯半价 floor(3100/2)=1550
+    expect(forward).toBe(1550);
+    expect(reverse).toBe(1550);
+  });
 });
 
 describe('活动生效判断', () => {
