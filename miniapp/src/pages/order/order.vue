@@ -37,7 +37,8 @@ onMounted(async () => {
     refreshPromoProducts();
     activeCategoryId.value = categoryList[0]?.id ?? 0;
     await nextTick();
-    measureSections();
+    // 延迟测量，确保 DOM 渲染完成
+    setTimeout(measureSections, 100);
   } finally {
     loading.value = false;
   }
@@ -731,8 +732,10 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
 }
 .spec-options {
   display: flex;
-  gap: 16rpx;
+  gap: 12rpx;
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 .spec-option {
   flex: 1;

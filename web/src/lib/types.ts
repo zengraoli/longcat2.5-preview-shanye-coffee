@@ -66,6 +66,7 @@ export interface Order {
   status: OrderStatus;
   pickupCode: string | null;
   originalAmount: number;
+  promoDiscountAmount: number;
   discountAmount: number;
   payableAmount: number;
   createdAt: string;

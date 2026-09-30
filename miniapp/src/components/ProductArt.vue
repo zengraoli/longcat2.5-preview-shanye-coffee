@@ -6,6 +6,15 @@ const props = defineProps<{
   name: string;
 }>();
 
+// 小程序端用文字图标替代 SVG（mp-weixin 不支持 svg 标签）
+const iconText = computed(() => {
+  const k = props.image ?? '';
+  if (k.includes('coffee') || k.includes('latte') || k.includes('americano') || k.includes('mocha') || k.includes('cappuccino')) return '☕';
+  if (k.includes('tea') || k.includes('matcha') || k.includes('jasmine')) return '🍵';
+  if (k.includes('croissant') || k.includes('bagel') || k.includes('sandwich') || k.includes('cake') || k.includes('tiramisu')) return '🥐';
+  return '🛍';
+});
+
 type Kind = 'coffee' | 'tea' | 'food' | 'merch';
 
 const coffeeKeys = [
@@ -55,6 +64,7 @@ const liquid = computed(() => {
 </script>
 
 <template>
+  <!-- #ifdef H5 -->
   <svg viewBox="0 0 120 120" class="art" role="img" :aria-label="name">
     <!-- 咖啡 -->
     <template v-if="kind === 'coffee'">
@@ -139,6 +149,12 @@ const liquid = computed(() => {
       </template>
     </template>
   </svg>
+  <!-- #endif -->
+  <!-- #ifndef H5 -->
+  <view class="art art-mp">
+    <text class="art-icon">{{ iconText }}</text>
+  </view>
+  <!-- #endif -->
 </template>
 
 <style scoped>
@@ -146,5 +162,14 @@ const liquid = computed(() => {
   width: 100%;
   height: 100%;
   display: block;
+}
+.art-mp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.art-icon {
+  font-size: 60rpx;
+  line-height: 1;
 }
 </style>

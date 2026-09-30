@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { api } from '../../lib/api';
 import { clearSession, getSession, saveSession } from '../../lib/auth';
-import { formatBeijing, levelProgress, maskPhone } from '../../lib/utils';
+import { formatBeijing, formatYuan, levelProgress, maskPhone } from '../../lib/utils';
 import type { Coupon, Member } from '../../lib/types';
 
 /* ---------- 登录 ---------- */
@@ -205,13 +205,13 @@ function goOrders() {
         >
           <view class="coupon-left">
             <text class="coupon-amount">
-              {{ c.type === 'full_reduction' ? `减${((c.discountAmount ?? 0) / 100).toFixed(0)}` : `${(c.discountRate ?? 100) / 10}折` }}
+              {{ c.type === 'full_reduction' ? `减${formatYuan(c.discountAmount ?? 0)}` : `${(c.discountRate ?? 100) / 10}折` }}
             </text>
           </view>
           <view class="coupon-info">
             <text class="coupon-name">{{ c.name }}</text>
             <text class="coupon-desc">
-              {{ c.type === 'full_reduction' ? `满${(c.threshold / 100).toFixed(0)}元可用` : '无门槛' }}
+              {{ c.type === 'full_reduction' ? `满${formatYuan(c.threshold)}可用` : '无门槛' }}
               · {{ formatBeijing(c.expiresAt) }} 到期
             </text>
           </view>
@@ -224,7 +224,7 @@ function goOrders() {
         >
           <view class="coupon-left">
             <text class="coupon-amount">
-              {{ c.type === 'full_reduction' ? `减${((c.discountAmount ?? 0) / 100).toFixed(0)}` : `${(c.discountRate ?? 100) / 10}折` }}
+              {{ c.type === 'full_reduction' ? `减${formatYuan(c.discountAmount ?? 0)}` : `${(c.discountRate ?? 100) / 10}折` }}
             </text>
           </view>
           <view class="coupon-info">

@@ -91,7 +91,7 @@ const logout = () => {
             <div class="member-phone">{{ maskPhone(member?.phone) }}</div>
           </div>
         </div>
-        <button class="btn btn-outline logout-btn" @click="logout">退出登录</button>
+        <button class="btn logout-btn" @click="logout">退出登录</button>
         <div class="member-stats">
           <div class="stat">
             <div class="stat-value">{{ member?.points ?? 0 }}</div>
@@ -156,8 +156,11 @@ const logout = () => {
           </div>
           <div class="order-foot">
             <span class="order-time">{{ formatBeijing(o.createdAt) }}</span>
+            <span v-if="o.promoDiscountAmount > 0" class="order-discount">
+              活动 -{{ formatYuan(o.promoDiscountAmount) }}
+            </span>
             <span v-if="o.discountAmount > 0" class="order-discount">
-              优惠 {{ formatYuan(o.discountAmount) }}
+              券 -{{ formatYuan(o.discountAmount) }}
             </span>
             <span class="order-amount">{{ formatYuan(o.payableAmount) }}</span>
           </div>
@@ -228,6 +231,18 @@ const logout = () => {
   background: linear-gradient(135deg, var(--brand-800), var(--brand-600));
   color: #fff;
   border: none;
+}
+.logout-btn {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 .member-main {
   display: flex;

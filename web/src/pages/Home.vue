@@ -17,8 +17,13 @@ onMounted(async () => {
       api.get<Product[]>('/api/products'),
       api.get<Store[]>('/api/stores'),
     ]);
-    // 当季推荐：取前 4 个上架且未售罄商品
-    recommended.value = products.filter((p) => !p.soldOut).slice(0, 4);
+    // 当季推荐：每个分类取第一个未售罄商品，最多 4 个
+    const byCategory = new Map<number, Product>();
+    for (const p of products) {
+      if (p.soldOut) continue;
+      if (!byCategory.has(p.categoryId)) byCategory.set(p.categoryId, p);
+    }
+    recommended.value = [...byCategory.values()].slice(0, 4);
     stores.value = storeList;
   } catch {
     loadError.value = '服务暂时不可用，请稍后刷新重试';

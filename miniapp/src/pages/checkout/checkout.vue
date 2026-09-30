@@ -646,6 +646,9 @@ const sessionPhone = computed(() => {
   border-radius: 16rpx;
   padding: 24rpx;
   margin-bottom: 16rpx;
+  overflow: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
   &.active {
     border-color: $brand-600;
     background: $brand-50;

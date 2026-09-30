@@ -65,6 +65,7 @@ const selectCategory = (id: number | 'all') => {
 };
 
 const openDetail = (p: Product) => {
+  if (p.soldOut) return; // 售罄商品不可点开
   selected.value = null;
   api
     .get<Product>(`/api/products/${p.id}`)
@@ -171,7 +172,7 @@ const openDetail = (p: Product) => {
           </div>
         </button>
       </div>
-      <p v-if="!loading && filtered.length === 0" class="empty">该分类暂无商品</p>
+      <p v-if="!loading && !loadError && filtered.length === 0" class="empty">该分类暂无商品</p>
     </div>
 
     <!-- 商品详情弹窗 -->
@@ -324,6 +325,7 @@ const openDetail = (p: Product) => {
 .product-name-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.4rem;
 }
 .product-name {

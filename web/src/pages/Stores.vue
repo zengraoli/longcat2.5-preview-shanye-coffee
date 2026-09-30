@@ -5,10 +5,13 @@ import type { Store } from '../lib/types';
 
 const stores = ref<Store[]>([]);
 const loading = ref(true);
+const loadError = ref('');
 
 onMounted(async () => {
   try {
     stores.value = await api.get<Store[]>('/api/stores');
+  } catch {
+    loadError.value = '服务暂时不可用，请稍后刷新重试';
   } finally {
     loading.value = false;
   }
@@ -18,6 +21,7 @@ onMounted(async () => {
 <template>
   <div class="stores-page">
     <div class="container">
+      <p v-if="loadError" class="load-error">{{ loadError }}</p>
       <header class="page-head">
         <h1 class="page-title">门店</h1>
         <p class="page-sub">三家门店，欢迎光临</p>

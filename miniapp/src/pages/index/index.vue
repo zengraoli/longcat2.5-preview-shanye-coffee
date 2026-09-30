@@ -13,6 +13,7 @@ const { refreshPromoProducts, isPromoProduct } = usePromoProducts();
 const stores = ref<Store[]>([]);
 const products = ref<Product[]>([]);
 const loading = ref(true);
+const loadError = ref('');
 
 onMounted(async () => {
   try {
@@ -23,9 +24,13 @@ onMounted(async () => {
     stores.value = storeList;
     products.value = productList;
     refreshPromoProducts();
-    // 默认选中第一家营业门店（同步到 shop，供点单/确认订单页使用）
-    const firstOpen = storeList.find((s) => s.isOpen);
-    setCurrentStoreId((firstOpen ?? storeList[0])?.id ?? 0);
+    // 仅在未选择门店时默认选中第一家营业门店（保留上次选择）
+    if (!currentStoreId.value) {
+      const firstOpen = storeList.find((s) => s.isOpen);
+      setCurrentStoreId((firstOpen ?? storeList[0])?.id ?? 0);
+    }
+  } catch {
+    loadError.value = '服务暂时不可用，请稍后刷新重试';
   } finally {
     loading.value = false;
   }
