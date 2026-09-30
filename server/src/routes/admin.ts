@@ -285,6 +285,10 @@ export default async function adminRoutes(app: FastifyInstance) {
           throw err(ErrorCode.VALIDATION, '折扣率非法');
         }
       }
+      // enabled 仅接受布尔，字符串 "false" 不当作停用
+      if (body.enabled !== undefined && typeof body.enabled !== 'boolean') {
+        throw err(ErrorCode.VALIDATION, '启用状态非法');
+      }
       const db = getDb();
       const maxSort = (
         db.prepare('SELECT COALESCE(MAX(sort), 0) AS m FROM coupon_templates').get() as { m: number }
@@ -292,7 +296,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       const info = db
         .prepare(
           `INSERT INTO coupon_templates (name, type, threshold, discount_amount, discount_rate, valid_days, total_stock, enabled, sort)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           name.trim(),
@@ -302,6 +306,7 @@ export default async function adminRoutes(app: FastifyInstance) {
           type === 'discount' ? Number(body.discount_rate) : null,
           validDays,
           totalStock,
+          body.enabled === false ? 0 : 1,
           maxSort + 1,
         );
       const row = db
@@ -543,7 +548,7 @@ export default async function adminRoutes(app: FastifyInstance) {
         newType === 'discount' ? Number(newDiscountRate) : null,
         Number(newValidDays),
         Number(newTotalStock),
-        enabled === undefined ? t.enabled : enabled ? 1 : 0,
+        enabled === undefined ? t.enabled : enabled === true || enabled === 1 ? 1 : 0,
         id,
       );
       const row = db
