@@ -1,0 +1,47 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": { "navigationBarTitleText": "山野咖啡", "enablePullDownRefresh": true }
+    },
+    {
+      "path": "pages/order/order",
+      "style": { "navigationBarTitleText": "点单" }
+    },
+    {
+      "path": "pages/checkout/checkout",
+      "style": { "navigationBarTitleText": "确认订单" }
+    },
+    {
+      "path": "pages/orderDetail/orderDetail",
+      "style": { "navigationBarTitleText": "订单详情" }
+    },
+    {
+      "path": "pages/orders/orders",
+      "style": { "navigationBarTitleText": "我的订单" }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": { "navigationBarTitleText": "我的" }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarBackgroundColor": "#356a47",
+    "navigationBarTitleText": "山野咖啡",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#fbf8f3",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#6b7280",
+    "selectedColor": "#356a47",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "#e0ede2",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "首页" },
+      { "pagePath": "pages/order/order", "text": "点单" },
+      { "pagePath": "pages/orders/orders", "text": "订单" },
+      { "pagePath": "pages/profile/profile", "text": "我的" }
+    ]
+  }
+}
