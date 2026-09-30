@@ -24,9 +24,11 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shanye.coffee.data.Product
 import com.shanye.coffee.data.AuthState
+import com.shanye.coffee.data.Promotion
 import com.shanye.coffee.data.Repository
 import com.shanye.coffee.data.Store
 import com.shanye.coffee.data.formatYuan
@@ -55,6 +58,7 @@ import com.shanye.coffee.ui.theme.Caramel600
 import com.shanye.coffee.ui.theme.Cream100
 import com.shanye.coffee.ui.theme.Cream50
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     repository: Repository,
@@ -65,13 +69,18 @@ fun HomeScreen(
     var products by remember { mutableStateOf<List<Product>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var selectedStoreId by remember { mutableStateOf(0) }
+    var showStorePicker by remember { mutableStateOf(false) }
+    var promotions by remember { mutableStateOf<List<Promotion>>(emptyList()) }
 
     LaunchedEffect(Unit) {
         try {
             val storeList = repository.stores()
             stores = storeList
-            selectedStoreId = storeList.firstOrNull { it.isOpen }?.id ?: storeList.firstOrNull()?.id ?: 0
+            if (selectedStoreId == 0) {
+                selectedStoreId = storeList.firstOrNull { it.isOpen }?.id ?: storeList.firstOrNull()?.id ?: 0
+            }
             products = repository.products()
+            promotions = repository.activePromotions().promotions
         } catch (e: com.shanye.coffee.data.UnauthorizedException) {
             AuthState.onUnauthorized()
         } catch (e: Exception) {
@@ -98,7 +107,7 @@ fun HomeScreen(
         ) {
             Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Brand600)
             Spacer(Modifier.width(4.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f).clickable { showStorePicker = true }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         selectedStore?.name ?: "选择门店",
@@ -117,20 +126,23 @@ fun HomeScreen(
             Icon(Icons.Filled.Search, contentDescription = null, tint = Brand900)
         }
 
-        // 活动横幅
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(120.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Caramel500)
-                .padding(16.dp),
-        ) {
-            Column {
-                Text("秋日限定", fontSize = 12.sp, color = Cream50)
-                Text("桂花拿铁 第二杯半价", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Cream50)
-                Text("9月19日 - 9月30日", fontSize = 12.sp, color = Cream50)
+        // 活动横幅（来自 server 当前生效活动）
+        if (promotions.isNotEmpty()) {
+            val promo = promotions.first()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(120.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Caramel500)
+                    .padding(16.dp),
+            ) {
+                Column {
+                    Text(promo.name, fontSize = 12.sp, color = Cream50)
+                    Text("第二杯半价", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Cream50)
+                    Text("${promo.startAt.take(10)} - ${promo.endAt.take(10)}", fontSize = 12.sp, color = Cream50)
+                }
             }
         }
 
@@ -145,6 +157,35 @@ fun HomeScreen(
         ) {
             EntryCard(title = "自提", desc = "到店取餐，免排队", modifier = Modifier.weight(1f), onClick = onGoToOrder)
             EntryCard(title = "堂食", desc = "店内享用", modifier = Modifier.weight(1f), onClick = onGoToOrder)
+        }
+
+        // 门店选择弹窗
+        if (showStorePicker) {
+            ModalBottomSheet(onDismissRequest = { showStorePicker = false }) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("选择门店", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Brand900)
+                    Spacer(Modifier.height(12.dp))
+                    stores.forEach { s ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedStoreId = s.id
+                                    showStorePicker = false
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(s.name, fontSize = 15.sp, color = Brand900, modifier = Modifier.weight(1f))
+                            Text(
+                                if (s.isOpen) "营业中" else "休息中",
+                                fontSize = 12.sp,
+                                color = if (s.isOpen) Brand600 else Color(0xFFB0483E),
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         Spacer(Modifier.height(20.dp))
