@@ -96,4 +96,6 @@ export interface CouponTemplate {
   validDays: number;
   totalStock: number;
   enabled: boolean;
+  /** 当前会员是否已领取（前端状态） */
+  disabled?: boolean;
 }

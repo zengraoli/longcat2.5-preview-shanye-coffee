@@ -9,6 +9,7 @@ import ProductArt from '../components/ProductArt.vue';
 const recommended = ref<Product[]>([]);
 const stores = ref<Store[]>([]);
 const loading = ref(true);
+const loadError = ref('');
 
 onMounted(async () => {
   try {
@@ -19,6 +20,8 @@ onMounted(async () => {
     // 当季推荐：取前 4 个上架且未售罄商品
     recommended.value = products.filter((p) => !p.soldOut).slice(0, 4);
     stores.value = storeList;
+  } catch {
+    loadError.value = '服务暂时不可用，请稍后刷新重试';
   } finally {
     loading.value = false;
   }
@@ -45,6 +48,7 @@ const features = [
 
 <template>
   <div class="home">
+    <p v-if="loadError" class="load-error">{{ loadError }}</p>
     <!-- 品牌主视觉 -->
     <section class="hero">
       <div class="container hero-grid">
@@ -151,6 +155,14 @@ const features = [
 </template>
 
 <style scoped>
+.load-error {
+  text-align: center;
+  color: var(--caramel-600);
+  padding: 1rem;
+  margin: 0 0 1rem;
+  background: #faf0e3;
+  border-radius: var(--radius);
+}
 /* 主视觉 */
 .hero {
   background: linear-gradient(160deg, var(--cream-50) 0%, var(--brand-50) 100%);

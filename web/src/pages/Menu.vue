@@ -13,6 +13,7 @@ const categories = ref<Category[]>([]);
 const products = ref<Product[]>([]);
 const activeCategory = ref<number | 'all'>('all');
 const loading = ref(true);
+const loadError = ref('');
 const selected = ref<Product | null>(null);
 
 // 支持从首页推荐跳转时携带分类参数
@@ -33,7 +34,8 @@ onMounted(async () => {
     categories.value = cats;
     products.value = prods;
     promoProductIds.value = new Set(promo?.applicableProductIds ?? []);
-    if (cats.length > 0) activeCategory.value = 'all';
+  } catch {
+    loadError.value = '服务暂时不可用，请稍后刷新重试';
   } finally {
     loading.value = false;
   }
@@ -43,6 +45,20 @@ const filtered = computed(() => {
   if (activeCategory.value === 'all') return products.value;
   return products.value.filter((p) => p.categoryId === activeCategory.value);
 });
+
+/** “全部”下按分类分组展示 */
+const grouped = computed(() => {
+  if (activeCategory.value !== 'all') return [];
+  return categories.value
+    .map((c) => ({
+      category: c,
+      items: products.value.filter((p) => p.categoryId === c.id),
+    }))
+    .filter((g) => g.items.length > 0);
+});
+
+/** 活动价（第二杯半价）：单杯半价参考价 */
+const promoHalfPrice = (p: Product) => Math.floor(p.price / 2);
 
 const selectCategory = (id: number | 'all') => {
   activeCategory.value = id;
@@ -62,6 +78,7 @@ const openDetail = (p: Product) => {
 <template>
   <div class="menu-page">
     <div class="container">
+      <p v-if="loadError" class="load-error">{{ loadError }}</p>
       <header class="page-head">
         <h1 class="page-title">菜单</h1>
         <p class="page-sub">当季风味，自采自烘</p>
@@ -91,6 +108,41 @@ const openDetail = (p: Product) => {
       <div v-if="loading" class="grid">
         <div v-for="i in 8" :key="i" class="product-card card skeleton"></div>
       </div>
+      <!-- 全部：按分类分组 -->
+      <template v-else-if="activeCategory === 'all'">
+        <div v-for="g in grouped" :key="g.category.id" class="menu-group">
+          <h2 class="menu-group-title">{{ g.category.name }}</h2>
+          <div class="grid">
+            <button
+              v-for="p in g.items"
+              :key="p.id"
+              class="product-card card"
+              :class="{ 'is-soldout': p.soldOut }"
+              @click="openDetail(p)"
+            >
+              <div class="product-art">
+                <ProductArt :image="p.image" :name="p.name" />
+              </div>
+              <div class="product-info">
+                <div class="product-name-row">
+                  <span class="product-name">{{ p.name }}</span>
+                  <span v-if="promoProductIds.has(p.id)" class="promo-tag">第二杯半价</span>
+                </div>
+                <div class="product-desc">{{ p.description }}</div>
+                <div class="product-foot">
+                  <span class="product-price">{{ formatYuan(p.price) }}</span>
+                  <span v-if="promoProductIds.has(p.id)" class="promo-price">
+                    第二杯 {{ formatYuan(promoHalfPrice(p)) }}
+                  </span>
+                  <span v-if="p.soldOut" class="product-soldout">售罄</span>
+                </div>
+                <div v-if="p.soldOut" class="product-soldout-mask">已售罄</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </template>
+      <!-- 单个分类 -->
       <div v-else class="grid">
         <button
           v-for="p in filtered"
@@ -110,6 +162,9 @@ const openDetail = (p: Product) => {
             <div class="product-desc">{{ p.description }}</div>
             <div class="product-foot">
               <span class="product-price">{{ formatYuan(p.price) }}</span>
+              <span v-if="promoProductIds.has(p.id)" class="promo-price">
+                第二杯 {{ formatYuan(promoHalfPrice(p)) }}
+              </span>
               <span v-if="p.soldOut" class="product-soldout">售罄</span>
             </div>
             <div v-if="p.soldOut" class="product-soldout-mask">已售罄</div>
@@ -152,8 +207,32 @@ const openDetail = (p: Product) => {
 </template>
 
 <style scoped>
+.load-error {
+  text-align: center;
+  color: var(--caramel-600);
+  padding: 1rem;
+  margin: 0 0 1rem;
+  background: #faf0e3;
+  border-radius: var(--radius);
+}
 .menu-page {
   padding-bottom: 3rem;
+}
+.menu-group {
+  margin-bottom: 2rem;
+}
+.menu-group-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--brand-900);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--brand-100);
+}
+.promo-price {
+  font-size: 0.75rem;
+  color: var(--caramel-600);
+  margin-left: 0.4rem;
 }
 .page-head {
   padding: 2.5rem 0 1.5rem;
@@ -250,6 +329,11 @@ const openDetail = (p: Product) => {
 .product-name {
   font-weight: 700;
   color: var(--brand-900);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.product-card {
+  min-width: 0;
 }
 .promo-tag {
   font-size: 0.65rem;

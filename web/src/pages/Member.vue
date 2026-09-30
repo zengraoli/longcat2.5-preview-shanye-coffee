@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { api } from '../lib/api';
+import { clearSession } from '../lib/auth';
 import { formatYuan, formatBeijing, maskPhone, specText } from '../lib/utils';
 import type { Coupon, CouponTemplate, Member, Order, OrderStatus } from '../lib/types';
 
@@ -50,12 +51,17 @@ onMounted(async () => {
 });
 
 const claim = async (c: CouponTemplate) => {
+  if (hasClaimed(c.id)) return;
   claiming.value = c.id;
   error.value = '';
   try {
     await api.post(`/api/coupons/${c.id}/claim`);
     const mc = await api.get<Coupon[]>('/api/member/coupons');
     myCoupons.value = mc;
+    // 同步更新可用列表，禁用已领取的券
+    available.value = available.value.map((t) =>
+      t.id === c.id ? { ...t, disabled: true } : t,
+    );
   } catch (e) {
     error.value = e instanceof Error ? e.message : '领取失败';
   } finally {
@@ -64,6 +70,11 @@ const claim = async (c: CouponTemplate) => {
 };
 
 const hasClaimed = (templateId: number) => myCoupons.value.some((c) => c.templateId === templateId);
+
+const logout = () => {
+  clearSession();
+  window.location.href = '/';
+};
 </script>
 
 <template>
@@ -80,6 +91,7 @@ const hasClaimed = (templateId: number) => myCoupons.value.some((c) => c.templat
             <div class="member-phone">{{ maskPhone(member?.phone) }}</div>
           </div>
         </div>
+        <button class="btn btn-outline logout-btn" @click="logout">退出登录</button>
         <div class="member-stats">
           <div class="stat">
             <div class="stat-value">{{ member?.points ?? 0 }}</div>
@@ -190,10 +202,10 @@ const hasClaimed = (templateId: number) => myCoupons.value.some((c) => c.templat
             </div>
             <button
               class="btn btn-primary coupon-claim"
-              :disabled="hasClaimed(c.id) || claiming === c.id"
+              :disabled="hasClaimed(c.id) || c.disabled || claiming === c.id"
               @click="claim(c)"
             >
-              {{ hasClaimed(c.id) ? '已领取' : claiming === c.id ? '领取中…' : '领取' }}
+              {{ hasClaimed(c.id) || c.disabled ? '已领取' : claiming === c.id ? '领取中…' : '领取' }}
             </button>
           </div>
         </div>
