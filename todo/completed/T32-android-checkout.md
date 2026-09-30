@@ -1,7 +1,7 @@
 # T32 确认订单与支付
 
 阶段：S6 android
-状态：待完成
+状态：已完成（v0.41，2026-09-30）
 设计稿：`docs/design/android/AD4-checkout.png`
 
 ## 要做什么
