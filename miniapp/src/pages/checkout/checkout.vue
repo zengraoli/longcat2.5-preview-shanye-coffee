@@ -132,13 +132,17 @@ async function submitOrder() {
     }>('/api/orders', {
       store_id: store.id,
       type: type.value,
-      items: cartItems.map((i) => ({
-        product_id: i.productId,
-        cup: i.cup,
-        temperature: i.temperature,
-        sugar: i.sugar,
-        quantity: i.quantity,
-      })),
+      items: cartItems.map((i) => {
+        const item: Record<string, unknown> = {
+          product_id: i.productId,
+          quantity: i.quantity,
+        };
+        // 饮品传规格；非饮品不传（server schema 要求 string，传 null 会报错）
+        if (i.cup) item.cup = i.cup;
+        if (i.temperature) item.temperature = i.temperature;
+        if (i.sugar) item.sugar = i.sugar;
+        return item;
+      }),
       // 显式不使用传 0；使用最优券/指定券传 ID；不传则 server 自动推荐
       coupon_id: couponId === null ? 0 : couponId,
       remark: remark.value || undefined,
@@ -576,7 +580,7 @@ const sessionPhone = computed(() => {
   top: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.45);
-  z-index: 100;
+  z-index: 9999;
   display: flex;
   align-items: flex-end;
 }

@@ -65,6 +65,19 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       .send({ code: ErrorCode.NOT_FOUND, data: null, message: '接口不存在' });
   });
 
+  // CORS：允许跨域（小程序 H5 直连基地址、调试场景）
+  app.addHook('onSend', async (request, reply) => {
+    reply.header('Access-Control-Allow-Origin', request.headers.origin ?? '*');
+    reply.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
+    reply.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    reply.header('Access-Control-Max-Age', '86400');
+  });
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.method === 'OPTIONS') {
+      await reply.status(204).send();
+    }
+  });
+
   // 初始化数据库（建表 + 种子数据由 db 层负责）
   await initDb(options.dbFile ?? 'data/app.db');
 

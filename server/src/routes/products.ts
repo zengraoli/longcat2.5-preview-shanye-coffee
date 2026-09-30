@@ -141,6 +141,19 @@ export default async function productRoutes(app: FastifyInstance) {
           .prepare("SELECT * FROM products WHERE status = 'on' ORDER BY sort, id")
           .all() as ProductRow[];
       }
+      // 附带规格（饮品有 12 条，非饮品为空数组），供点单页判断是否需要选规格
+      const specRows = db
+        .prepare('SELECT product_id, cup, temperature, sugar, price_adjust FROM product_specs')
+        .all() as { product_id: number; cup: string; temperature: string; sugar: string; price_adjust: number }[];
+      const specsByProduct = new Map<
+        number,
+        { cup: string; temperature: string; sugar: string; priceAdjust: number }[]
+      >();
+      for (const s of specRows) {
+        const list = specsByProduct.get(s.product_id) ?? [];
+        list.push({ cup: s.cup, temperature: s.temperature, sugar: s.sugar, priceAdjust: s.price_adjust });
+        specsByProduct.set(s.product_id, list);
+      }
       ok(
         reply,
         rows.map((p) => ({
@@ -151,6 +164,7 @@ export default async function productRoutes(app: FastifyInstance) {
           price: p.price,
           image: p.image,
           soldOut: p.sold_out === 1,
+          specs: specsByProduct.get(p.id) ?? [],
         })),
       );
     },

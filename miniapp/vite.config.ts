@@ -9,5 +9,12 @@ export default defineConfig({
   plugins: [(uni as () => unknown)()],
   server: {
     port: 5303,
+    proxy: {
+      // H5 调试：/api 代理到 server，避免跨域
+      '/api': {
+        target: 'http://127.0.0.1:3300',
+        changeOrigin: true,
+      },
+    },
   },
 });

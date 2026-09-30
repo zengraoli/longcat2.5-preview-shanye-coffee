@@ -27,6 +27,9 @@ async function login() {
       code: code.value,
     });
     saveSession(res.token, res.member);
+    isLoggedIn.value = true;
+    loadMember();
+    loadCoupons();
     uni.showToast({ title: '登录成功', icon: 'success' });
   } catch (e) {
     uni.showToast({ title: e instanceof Error ? e.message : '登录失败', icon: 'none' });
@@ -44,6 +47,7 @@ function logout() {
       clearSession();
       member.value = null;
       coupons.value = [];
+      isLoggedIn.value = false;
       uni.showToast({ title: '已退出', icon: 'none' });
     },
   });
@@ -53,6 +57,8 @@ function logout() {
 const member = ref<Member | null>(null);
 const coupons = ref<Coupon[]>([]);
 const loadingMember = ref(false);
+/** 响应式登录状态：登录/退出后立即更新视图 */
+const isLoggedIn = ref<boolean>(!!getSession());
 
 async function loadMember() {
   const session = getSession();
@@ -126,7 +132,7 @@ function goOrders() {
 <template>
   <view class="page">
     <!-- 未登录 -->
-    <view v-if="!getSession()" class="login-panel">
+    <view v-if="!isLoggedIn" class="login-panel">
       <text class="login-title">登录会员</text>
       <text class="login-sub">手机号 + 验证码登录，首次登录自动注册</text>
       <input

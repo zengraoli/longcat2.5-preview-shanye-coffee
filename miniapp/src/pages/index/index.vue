@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { api } from '../../lib/api';
 import { formatYuan, selectRecommendations } from '../../lib/utils';
 import { usePromoProducts } from '../../lib/promoState';
+import { currentStoreId, setCurrentStoreId } from '../../lib/shop';
 import type { Product, Store } from '../../lib/types';
 import ProductArt from '../../components/ProductArt.vue';
 
@@ -10,7 +11,6 @@ const { refreshPromoProducts, isPromoProduct } = usePromoProducts();
 
 const stores = ref<Store[]>([]);
 const products = ref<Product[]>([]);
-const currentStoreId = ref(0);
 const loading = ref(true);
 
 onMounted(async () => {
@@ -22,9 +22,9 @@ onMounted(async () => {
     stores.value = storeList;
     products.value = productList;
     refreshPromoProducts();
-    // 默认选中第一家营业门店
+    // 默认选中第一家营业门店（同步到 shop，供点单/确认订单页使用）
     const firstOpen = storeList.find((s) => s.isOpen);
-    currentStoreId.value = (firstOpen ?? storeList[0])?.id ?? 0;
+    setCurrentStoreId((firstOpen ?? storeList[0])?.id ?? 0);
   } finally {
     loading.value = false;
   }
@@ -42,7 +42,7 @@ const recommended = computed<Product[]>(() =>
 );
 
 function selectStore(id: number) {
-  currentStoreId.value = id;
+  setCurrentStoreId(id);
 }
 
 function goOrder() {

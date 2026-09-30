@@ -536,7 +536,7 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
   align-items: center;
   padding: 0 12rpx 0 24rpx;
   box-shadow: 0 8rpx 24rpx rgba(30, 58, 41, 0.25);
-  z-index: 10;
+  z-index: 9999;
 }
 .cart-icon-wrap {
   position: relative;
@@ -601,7 +601,7 @@ const sugarOptions: { value: ProductSpec['sugar']; label: string }[] = [
   top: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.45);
-  z-index: 100;
+  z-index: 9999;
   display: flex;
   align-items: flex-end;
 }
