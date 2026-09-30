@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { formatYuan, maskPhone, selectRecommendations, specText } from './utils';
+import {
+  formatYuan,
+  maskPhone,
+  selectRecommendations,
+  specPriceAdjust,
+  specText,
+  unitPrice,
+} from './utils';
 
 describe('formatYuan', () => {
   it('分 → ¥xx.xx', () => {
@@ -53,5 +60,38 @@ describe('selectRecommendations', () => {
   it('全部售罄时返回空', () => {
     const allOut = products.map((p) => ({ ...p, soldOut: true }));
     expect(selectRecommendations(allOut, 1)).toEqual([]);
+  });
+});
+
+describe('specPriceAdjust', () => {
+  const specs = [
+    { cup: 'medium', temperature: 'ice', sugar: 'none', priceAdjust: 0 },
+    { cup: 'large', temperature: 'ice', sugar: 'none', priceAdjust: 300 },
+    { cup: 'large', temperature: 'hot', sugar: 'less', priceAdjust: 300 },
+  ];
+
+  it('中杯不加价', () => {
+    expect(specPriceAdjust(specs, 'medium', 'ice', 'none')).toBe(0);
+  });
+
+  it('大杯加 300 分', () => {
+    expect(specPriceAdjust(specs, 'large', 'ice', 'none')).toBe(300);
+    expect(specPriceAdjust(specs, 'large', 'hot', 'less')).toBe(300);
+  });
+
+  it('未匹配的规格返回 0', () => {
+    expect(specPriceAdjust(specs, 'medium', 'hot', 'standard')).toBe(0);
+  });
+});
+
+describe('unitPrice', () => {
+  it('规格加价正确计入单价', () => {
+    expect(unitPrice(2800, 0)).toBe(2800);
+    expect(unitPrice(2800, 300)).toBe(3100);
+  });
+
+  it('负数价格归零', () => {
+    expect(unitPrice(-100, 0)).toBe(0);
+    expect(unitPrice(2800, -50)).toBe(2800);
   });
 });

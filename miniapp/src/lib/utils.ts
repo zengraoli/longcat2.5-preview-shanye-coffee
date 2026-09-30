@@ -23,6 +23,27 @@ export function maskPhone(phone: string | null | undefined): string {
 }
 
 /**
+ * 按所选规格匹配加价（分），未匹配返回 0。
+ * 大杯 +300 分（3 元），其余规格不加价。
+ */
+export function specPriceAdjust(
+  specs: { cup: string; temperature: string; sugar: string; priceAdjust: number }[],
+  cup: string | null,
+  temperature: string | null,
+  sugar: string | null,
+): number {
+  const hit = specs.find(
+    (s) => s.cup === cup && s.temperature === temperature && s.sugar === sugar,
+  );
+  return hit?.priceAdjust ?? 0;
+}
+
+/** 规格单价（分）：基础价 + 规格加价 */
+export function unitPrice(basePrice: number, priceAdjust: number): number {
+  return Math.max(0, basePrice) + Math.max(0, priceAdjust);
+}
+
+/**
  * 按门店轮换推荐商品：过滤售罄后按门店偏移取前 count 个。
  * 不同门店得到不同的推荐列表，保证门店切换后推荐随之变化。
  */
