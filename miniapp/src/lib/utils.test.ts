@@ -3,6 +3,7 @@ import {
   computeAmounts,
   couponDiscount,
   formatYuan,
+  levelProgress,
   maskPhone,
   selectRecommendations,
   specPriceAdjust,
@@ -147,6 +148,25 @@ describe('couponDiscount', () => {
   it('折扣率非法时优惠为 0', () => {
     const t = { type: 'discount' as const, threshold: 0, discountAmount: null, discountRate: 100 };
     expect(couponDiscount(t, 10000)).toBe(0);
+  });
+});
+
+describe('levelProgress', () => {
+  it('银卡：按 500 分线性计算', () => {
+    expect(levelProgress(0, 'silver')).toBe(0);
+    expect(levelProgress(250, 'silver')).toBe(50);
+    expect(levelProgress(500, 'silver')).toBe(100);
+  });
+
+  it('金卡：500-2000 之间线性计算', () => {
+    expect(levelProgress(500, 'gold')).toBe(0);
+    expect(levelProgress(1250, 'gold')).toBe(50);
+    expect(levelProgress(2000, 'gold')).toBe(100);
+  });
+
+  it('黑卡：恒为 100', () => {
+    expect(levelProgress(2000, 'black')).toBe(100);
+    expect(levelProgress(5000, 'black')).toBe(100);
   });
 });
 

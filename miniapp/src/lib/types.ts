@@ -32,12 +32,22 @@ export interface Product {
   specs: ProductSpec[];
 }
 
+export type MemberLevel = 'silver' | 'gold' | 'black';
+
 export interface Member {
   id: number;
   phone: string;
   nickname: string | null;
   points: number;
-  level: { level: string; name: string; points: number };
+  level: {
+    level: MemberLevel;
+    name: string;
+    points: number;
+    /** 下一等级；已达最高等级时为 null */
+    nextLevel: MemberLevel | null;
+    /** 距下一等级还差的分数；已达最高等级时为 null */
+    pointsToNext: number | null;
+  };
 }
 
 export interface OrderItem {

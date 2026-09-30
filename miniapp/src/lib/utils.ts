@@ -38,6 +38,13 @@ export function specPriceAdjust(
   return hit?.priceAdjust ?? 0;
 }
 
+/** 会员等级进度（0-100），最高等级返回 100。与 web 端展示口径一致。 */
+export function levelProgress(points: number, level: 'silver' | 'gold' | 'black'): number {
+  if (level === 'black') return 100;
+  if (level === 'gold') return Math.min(100, Math.round(((points - 500) / 1500) * 100));
+  return Math.min(100, Math.round((points / 500) * 100));
+}
+
 /** 规格单价（分）：基础价 + 规格加价 */
 export function unitPrice(basePrice: number, priceAdjust: number): number {
   return Math.max(0, basePrice) + Math.max(0, priceAdjust);

@@ -34,6 +34,17 @@ npm test                         # 单元测试（vitest）
 
 手机号 + 验证码登录（测试验证码固定 `123456`），首次登录自动注册。
 
+## 页面
+
+| 页面 | 路径 | 说明 |
+|-|-|-|
+| 首页 | pages/index/index | 门店选择、轮播、门店联动推荐商品 |
+| 点单 | pages/order/order | 左侧分类右侧商品滚动联动、规格弹窗、底部购物车浮层 |
+| 确认订单 | pages/checkout/checkout | 自提/堂食、优惠券（默认最优券）、金额明细、模拟支付 |
+| 订单详情 | pages/orderDetail/orderDetail | 取餐码、状态进度条、取消/支付 |
+| 我的订单 | pages/orders/orders | 订单列表，下拉刷新可见后台推进的最新状态 |
+| 我的 | pages/profile/profile | 会员卡、积分、等级进度、优惠券、登录/退出 |
+
 ## 已知问题
 
 - 小程序端为模拟支付，不接入真实微信支付。
