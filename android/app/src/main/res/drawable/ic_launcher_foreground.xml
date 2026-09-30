@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 品牌圆形背景 -->
+    <path
+        android:fillColor="#356A47"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+    <!-- 山峰 -->
+    <path
+        android:fillColor="#FBF8F3"
+        android:pathData="M30,62 L46,40 L54,52 L60,44 L78,62 Z" />
+    <!-- 太阳 -->
+    <path
+        android:fillColor="#C9853C"
+        android:pathData="M62,36m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+</vector>
